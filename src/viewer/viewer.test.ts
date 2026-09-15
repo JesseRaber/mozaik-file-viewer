@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildDemoJob } from "./demo.ts";
 import { decodeBytes, xmlPayload } from "./encoding.ts";
-import { partAABB, shakerOpening } from "./geom.ts";
+import { assyMatches, parseAssy, partAABB, roomNumber, shakerOpening } from "./geom.ts";
 import { parseGcode } from "./parse/gcode.ts";
 
 test("demo cabinet occupies a 24×24×34.5 envelope plus front frame", () => {
@@ -89,4 +89,49 @@ test("G-code parser honors G20 inches and G21 millimetres", () => {
   assert.ok(mmCut, "mm cut episode");
   const mxs = mmCut.pts.map((p) => p[0]);
   assert.ok(mxs.some((x) => Math.abs(x - 80) < 0.2), `mm X unscaled, got ${mxs.join(",")}`);
+});
+
+// --- Assembly-label matching -------------------------------------------------
+// Regression cover for the substring bug found in Sample Face Frame, where
+// cabinet 1 claimed the optimizer labels of cabinets 10-13 and of the other
+// room's cabinet 1.
+
+test("parseAssy reads Mozaik's R<room>C<cab> and the looser variants", () => {
+  assert.deepEqual(parseAssy("R1C13"), { room: 1, cab: 13 });
+  assert.deepEqual(parseAssy("R2C1"), { room: 2, cab: 1 });
+  assert.deepEqual(parseAssy("C4"), { room: null, cab: 4 });
+  assert.deepEqual(parseAssy("CAB-2"), { room: null, cab: 2 });
+  assert.deepEqual(parseAssy("#7"), { room: null, cab: 7 });
+  assert.equal(parseAssy("whatever"), null);
+  assert.equal(parseAssy(""), null);
+});
+
+test("roomNumber reads the room file name", () => {
+  assert.equal(roomNumber("Room1.des"), 1);
+  assert.equal(roomNumber("Room12.des"), 12);
+  assert.equal(roomNumber("Kitchen.des"), null);
+});
+
+test("assyMatches does not let cabinet 1 claim cabinets 10-13", () => {
+  assert.ok(assyMatches("R1C1", "Room1.des", "1"));
+  for (const a of ["R1C10", "R1C11", "R1C12", "R1C13"]) {
+    assert.equal(assyMatches(a, "Room1.des", "1"), false, `${a} must not match cab 1`);
+  }
+});
+
+test("assyMatches does not let one room claim another room's labels", () => {
+  assert.equal(assyMatches("R2C1", "Room1.des", "1"), false);
+  assert.equal(assyMatches("R1C1", "Room2.des", "1"), false);
+  assert.ok(assyMatches("R2C1", "Room2.des", "1"));
+});
+
+test("assyMatches falls back sanely when a side names no room", () => {
+  assert.ok(assyMatches("C3", "Room1.des", "3"));
+  assert.equal(assyMatches("C3", "Room1.des", "4"), false);
+  assert.ok(assyMatches("R1C3", "Kitchen.des", "3"));
+});
+
+test("an unparseable label is not claimed", () => {
+  assert.equal(assyMatches("BOGUS", "Room1.des", "1"), false);
+  assert.ok(assyMatches("", "Room1.des", "1"), "blank label still means unlabelled");
 });
