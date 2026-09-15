@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { assyCodes, assyMatches, dimClose, groupOf, normName } from "./geom";
+import { assyMatches, dimClose, groupOf, normName } from "./geom";
 import { printHtml } from "./print";
 import { currentProduct, currentRoom, state } from "./store";
 import type { Engine, PartView } from "./engine";
@@ -132,11 +132,10 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
     }
     const list = [...map.values()];
     const run = runs[runSel.value];
-    const codes = assyCodes(room?.file || "", prod?.cabNo || "1");
     if (run) {
       for (const mat of run.materials) {
         for (const op of mat.parts) {
-          if (!assyMatches(op.assy, codes, prod?.cabNo || "1")) continue;
+          if (!assyMatches(op.assy, room?.file || "", prod?.cabNo || "1")) continue;
           const hit = list.find(
             (g) =>
               (normName(g.name) === normName(op.name) ||
