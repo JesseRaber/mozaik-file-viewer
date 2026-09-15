@@ -22,6 +22,12 @@ const TYPE_THICK: Record<string, number> = {
   Metal: 19,
 };
 
+/**
+ * Real Mozaik <CabProdPart> elements carry none of these except SUPartD, and
+ * that only on a small minority of parts (8 of 122 in Sample Face Frame's
+ * Room2.des). In practice thickness comes from the optimizer match or, failing
+ * that, from TYPE_THICK above. Treat a "default" thicknessSource as a guess.
+ */
 const THICK_ATTRS = [
   "Thickness",
   "Thick",
@@ -350,24 +356,40 @@ export function dimClose(aL: number, aW: number, bL: number, bW: number, tol = 1
   return pairs.some((p) => p[0]);
 }
 
-export function assyCodes(roomFile: string, cabNo: string): string[] {
-  const codes: string[] = [];
-  const m = (roomFile || "").match(/Room\s*(\d+)/i);
-  const c = cabNo || "1";
-  if (m) {
-    codes.push(`R${m[1]}C${c}`, `R${m[1]}N${c}`);
-  }
-  codes.push(`C${c}`, `CAB${c}`, `CAB-${c}`);
-  return codes;
+/**
+ * Parse an optimizer AssyNo. Mozaik writes "R<room>C<cab>" (e.g. "R1C13");
+ * "C4", "CAB-2" and "#7" are tolerated for jobs that label differently.
+ */
+export function parseAssy(assy: string): { room: number | null; cab: number } | null {
+  const u = (assy || "").toUpperCase().replace(/[\s_-]/g, "");
+  const m = u.match(/^(?:R(\d+))?(?:CAB|C|N|#)(\d+)$/);
+  if (!m) return null;
+  return { room: m[1] ? Number(m[1]) : null, cab: Number(m[2]) };
 }
 
-export function assyMatches(assy: string, codes: string[], cabNo: string): boolean {
+/** Room number from a room file name such as "Room1.des". */
+export function roomNumber(roomFile: string): number | null {
+  const m = (roomFile || "").match(/Room\s*(\d+)/i);
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * Does this optimizer label belong to this cabinet?
+ *
+ * Compares room and cabinet as NUMBERS. Substring matching is wrong here:
+ * "R1C1" must not claim "R1C13"'s parts, and Room 2's cabinet 1 must not claim
+ * Room 1's. An unparseable label is treated as not ours — a missing label on a
+ * sheet is recoverable, a wrong one is not.
+ */
+export function assyMatches(assy: string, roomFile: string, cabNo: string): boolean {
   if (!assy) return true;
-  const u = assy.toUpperCase();
-  if (codes.some((c) => u === c.toUpperCase() || u.includes(c.toUpperCase()))) return true;
-  if (cabNo && (u.endsWith(`C${cabNo}`) || u.includes(`CAB${cabNo}`) || u.includes(`#${cabNo}`)))
-    return true;
-  return false;
+  const a = parseAssy(assy);
+  if (!a) return false;
+  const cab = Number(cabNo || "1");
+  if (!Number.isFinite(cab) || a.cab !== cab) return false;
+  const rn = roomNumber(roomFile);
+  if (a.room != null && rn != null) return a.room === rn;
+  return true;
 }
 
 export function applyRots(rots: Rot[]): number[][] {
