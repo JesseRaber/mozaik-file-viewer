@@ -1,12 +1,16 @@
 import JSZip from "jszip";
 import { decodeBytes } from "../encoding";
 import { defaultThickness, dimClose, normName } from "../geom";
-import type { CncFile, FileItem, Job, LoadWarning, OptRun } from "../types";
+import type { CncFile, FileItem, Job, LoadWarning, OptRun, PaperlessData } from "../types";
 import { parseDes } from "./des";
 import { mergeRuns, parseOpt } from "./opt";
 import { parseJobParms } from "./parms";
+import { applyPaperless, parseLabelData } from "./paperless";
 
 const CNC_EXT = [".nc", ".tap", ".gcode", ".gc", ".cnc", ".mmg", ".bpp", ".anc", ".xxl", ".ngc"];
+
+/** Mozaik "export to apps" archives. All three are ZIPs. */
+const PAPERLESS_EXT = [".mzklbl", ".mzkcut", ".mzkasy"];
 
 function looksLikeGcode(head: string): boolean {
   return /Mozaik Output|G20|G21|G90/.test(head) && /G0\d? |G1 |X[\d.-]/.test(head);
@@ -58,6 +62,7 @@ export async function loadItems(items: FileItem[]): Promise<Job> {
   const parmItems: FileItem[] = [];
   const cncItems: FileItem[] = [];
   const txtCandidates: FileItem[] = [];
+  const paperlessItems: FileItem[] = [];
 
   for (const it of items) {
     const nl = it.path.toLowerCase();
@@ -74,6 +79,8 @@ export async function loadItems(items: FileItem[]): Promise<Job> {
     else if (nl.endsWith(".sbk")) sbkItems.push(it);
     else if (nl.endsWith(".opt")) optItems.push(it);
     else if (nl.endsWith("-jobparms.dat")) parmItems.push(it);
+    else if (PAPERLESS_EXT.some((e) => nl.endsWith(e))) paperlessItems.push(it);
+    else if (nl.endsWith("status.xml") || nl.endsWith("labeldata.xml")) paperlessItems.push(it);
     else if (CNC_EXT.some((e) => nl.endsWith(e))) cncItems.push(it);
     else if (nl.endsWith(".txt")) txtCandidates.push(it);
   }
@@ -152,7 +159,47 @@ export async function loadItems(items: FileItem[]): Promise<Job> {
     source: "files",
   };
   applyOptimizerThickness(job);
+
+  const paperless = await loadPaperless(paperlessItems, warnings);
+  if (paperless) {
+    job.paperless = paperless;
+    job.paperlessMatched = applyPaperless(job, paperless);
+  }
   return job;
+}
+
+/**
+ * Find the richest Paperless Shop export among the loaded files.
+ *
+ * A job folder can hold several — one per target tablet, plus status files
+ * that are empty until work is recorded. Take whichever describes the most
+ * parts; they are exports of the same run.
+ */
+async function loadPaperless(
+  items: FileItem[],
+  warnings: LoadWarning[],
+): Promise<PaperlessData | null> {
+  let best: PaperlessData | null = null;
+  for (const it of items) {
+    try {
+      const nl = it.name.toLowerCase();
+      let text: string | null = null;
+      if (PAPERLESS_EXT.some((e) => nl.endsWith(e))) {
+        const zip = await JSZip.loadAsync(await it.raw());
+        const entry = Object.keys(zip.files).find((n) => /labeldata\.xml$/i.test(n));
+        if (!entry) continue;
+        text = decodeBytes(await zip.files[entry].async("arraybuffer"));
+      } else {
+        text = decodeBytes(await it.raw());
+      }
+      const { data, warning } = parseLabelData(text, it.name);
+      if (warning) warnings.push(warning);
+      if (data && (!best || data.parts.length > best.parts.length)) best = data;
+    } catch (err) {
+      warnings.push({ file: it.name, message: `Paperless Shop export failed: ${String(err)}` });
+    }
+  }
+  return best;
 }
 
 export async function filesToItems(fileList: File[]): Promise<FileItem[]> {

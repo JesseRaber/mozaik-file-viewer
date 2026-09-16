@@ -12,6 +12,20 @@ Open a Jobs folder (or drop a `.zip`) and you get:
 
 A procedural 24" face-frame demo loads without any shop files.
 
+## Scope
+
+This is a **companion to Mozaik Paperless Shop, not a replacement for it.**
+
+It does not track progress, does not check parts off, does not sync between
+tablets, and does not print labels — those are what Paperless Shop is for. This
+tool shows you the job and prints sheets from it.
+
+Approved scope, release gate, and current risks: [`PROJECT_ROADMAP_STATUS.md`](PROJECT_ROADMAP_STATUS.md).
+
+> **Pre-release.** No real-job test fixtures exist yet, so parsed thicknesses and
+> optimizer label matching are not verified against shipped jobs. Do not rely on
+> a printed sheet from this tool without checking it against Mozaik.
+
 ## Privacy
 
 Nothing is uploaded. IndexedDB stores File System Access handles on Chromium. localStorage stores unit, title-block, and part-color preferences.
@@ -41,6 +55,12 @@ Vanilla TypeScript viewer (`src/viewer`) with Three.js and JSZip from npm — no
 ```
 npm install
 npm run dev
+```
+
+```
+npm run typecheck
+npm test
+npm run build
 ```
 
 ## Not a Mozaik replacement

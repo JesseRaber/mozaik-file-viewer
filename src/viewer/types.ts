@@ -36,7 +36,7 @@ export type Part = {
   W: number;
   L: number;
   thickness: number;
-  thicknessSource: "xml" | "optimizer" | "default";
+  thicknessSource: "xml" | "optimizer" | "default" | "paperless";
   pos: [number, number, number];
   rot: Rot[];
   shape: ShapePt[];
@@ -44,6 +44,10 @@ export type Part = {
   grooves: GrooveOp[];
   hardware: string;
   material?: string;
+  /** Edge-band name from a Paperless Shop export, when one was loaded. */
+  edgeBand?: string;
+  /** Optimizer label number from a Paperless Shop export, when one was loaded. */
+  labelNo?: number;
 };
 
 export type Fastener = { name: string; count: number };
@@ -106,6 +110,41 @@ export type OptRun = {
   materials: OptMaterial[];
 };
 
+/** One nested part as stated by a Mozaik "export to apps" LabelData file. */
+export type PaperlessPart = {
+  name: string;
+  L: number;
+  W: number;
+  assy: string;
+  cabName: string;
+  roomName: string;
+  material: string;
+  thickness: number;
+  edgeBand: string;
+  partNo: number;
+  shorthand: string;
+  comment: string;
+  sheetId: number;
+  patternNum: number;
+  x: number;
+  y: number;
+  rot: number;
+  gcodeFile: string;
+};
+
+export type PaperlessData = {
+  file: string;
+  jobName: string;
+  runName: string;
+  /** Paperless Shop exports are built for one named tablet. */
+  device: string;
+  generator: string;
+  inches: boolean;
+  materials: Array<{ name: string; abbr: string; thickness: number }>;
+  parts: PaperlessPart[];
+  remnants: number;
+};
+
 export type CncFile = {
   path: string;
   name: string;
@@ -139,6 +178,10 @@ export type Job = {
   parms: ParmLib[];
   warnings: LoadWarning[];
   source: "demo" | "files";
+  /** Present when a Mozaik "export to apps" file was loaded alongside the job. */
+  paperless?: PaperlessData;
+  /** How many parts the Paperless Shop overlay matched. */
+  paperlessMatched?: number;
 };
 
 export type FileItem = {

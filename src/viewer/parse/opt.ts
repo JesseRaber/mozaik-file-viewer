@@ -8,6 +8,18 @@ function num(el: Element, name: string, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/**
+ * Parse one Mozaik optimizer file.
+ *
+ * Mozaik writes ONE <OptimizeMaterial> per .opt file — a job with three
+ * materials produces three files (e.g. "1-2 Plywood.opt", "1-4 Plywood.opt",
+ * "3-4 Prefinished UV Plywood.opt"). mergeRuns() is what brings them back
+ * together into a single run.
+ *
+ * Observed attributes on <OptimizeMaterial>: Name, Thickness, Width, Length,
+ * HasGrain, WidthTrim, LengthTrim, FeedRate, Comment, CustomerName, Timestamp.
+ * Note there is no RunId, so every file merges into run 0.
+ */
 export function parseOpt(
   text: string,
   fname: string,
@@ -27,9 +39,12 @@ export function parseOpt(
   if (!om) {
     return { run: null, warning: { file: fname, message: "No <OptimizeMaterial>" } };
   }
+  const extra = doc.querySelectorAll("OptimizeMaterial").length - 1;
   const runId = num(om, "RunId");
   const mat = {
-    name: om.getAttribute("DisplayName") || fname,
+    // Mozaik's attribute is Name. DisplayName is kept only as a defensive
+    // fallback; the file name is a last resort and is not a material name.
+    name: om.getAttribute("Name") || om.getAttribute("DisplayName") || fname,
     thickness: num(om, "Thickness"),
     parts: [...doc.querySelectorAll("OptimizePart")].map((op) => ({
       id: num(op, "PartID"),
@@ -39,7 +54,19 @@ export function parseOpt(
       assy: op.getAttribute("AssyNo") || "",
     })),
   };
-  return { run: { runId, materials: [mat] } };
+  const run: OptRun = { runId, materials: [mat] };
+  if (extra > 0) {
+    // Never seen in the wild, but if it happens every part in the file would be
+    // attributed to the first material. Say so rather than showing wrong data.
+    return {
+      run,
+      warning: {
+        file: fname,
+        message: `${extra + 1} materials in one optimizer file; only "${mat.name}" was read`,
+      },
+    };
+  }
+  return { run };
 }
 
 export function mergeRuns(into: Record<string, OptRun>, run: OptRun) {

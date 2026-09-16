@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<JobData JobName="WoodWorx Test" JobAbbr="" RunName="Run 1" JobCreationDate="8/27/2024 6:42:42 AM" Version="1">
+  <Mat Index="UV1 Plywood (1/2)">
+    <Part Index="1" Printed="True" />
+  </Mat>
+  <Mat Index="UV2 Plywood (1/2)">
+    <Part Index="1" Printed="True" />
+  </Mat>
+  <LabelData JobName="WoodWorx Test" JobAbbr="" RunName="Run 1" Created="1724740962.438" CreatedBy="Fixture" TargetCpuId="SCRUBBED-TARGET-ID" TargetCpuDisplayName="X1-Tablet" TargetCpuCpuName="X1-Tablet" GeneratorCpuId="SCRUBBED-GENERATOR-ID" GeneratorCpuCpuName="UW-DESIGN1" DisplayPartNumbers="True" DisplayPartDims="True" DisplayBandingLabels="True" LabelDisplayFormat="0" Inches="True" UseFractions="True" InchRoundingMode="1" InchFractionRoundingMode="0">
+    <Material Name="UV1 Plywood (1/2)" Abbr="1-2 UV1" Thickness="11.938">
+      <Sheet ID="1" W="320.7" L="939.8" Rot="0" Area="301393.86" Quan="1" PatternNum="1" GcodeFilename="WoodWorx Test UV1 Plywood (1-2) S01R02.TAP" DxfFilename="">
+        <Part Name="Drw Bottom" ID="1" W="290.0934" L="188.4934" X="3.2" Y="27.4" Rot="0" Comment="Drawer Box Bottom" EdgeBand="None" Color="Yellow" DxfFilename="" AssyNo="R4N1" CabName="Drawer Box" IsRemnant="False" PartNo="1" ShorthandName="Dbm" BandTempSymbol="A" RoomName="CNC Drawers">
+        </Part>
+        <Part Name="UV1 Plywood (1/2)" ID="2" W="314.3" L="730.6" X="206" Y="3.2" Rot="0" Comment="" EdgeBand="NONE" Color="NONE" DxfFilename="" AssyNo="" CabName="" IsRemnant="True" PartNo="2" ShorthandName="" BandTempSymbol="" RoomName="">
+        </Part>
+      </Sheet>
+    </Material>
+    <Material Name="UV2 Plywood (1/2)" Abbr="1-2 UV2" Thickness="11.4808">
+      <Sheet ID="1" W="476.2" L="722.3" Rot="0" Area="343959.26" Quan="1" PatternNum="1" GcodeFilename="WoodWorx Test UV2 Plywood (1-2) S01R02.TAP" DxfFilename="">
+        <Part Name="Drw L Side" ID="3" W="101.6" L="300.8884" X="3.2" Y="371.4" Rot="0" Comment="" EdgeBand="A-4,0,0,0" Color="None" DxfFilename="" AssyNo="R4N1" CabName="Drawer Box" IsRemnant="False" PartNo="1" ShorthandName="DwS" BandTempSymbol="A" RoomName="CNC Drawers">
+        </Part>
+        <Part Name="Drw Front" ID="1" W="101.6" L="203.2" X="3.2" Y="255.5" Rot="0" Comment="" EdgeBand="A-4,0,0,0" Color="None" DxfFilename="" AssyNo="R4N1" CabName="Drawer Box" IsRemnant="False" PartNo="4" ShorthandName="DwF" BandTempSymbol="A" RoomName="CNC Drawers">
+        </Part>
+        <Part Name="UV2 Plywood (1/2)" ID="5" W="238" L="715.9" X="3.2" Y="3.2" Rot="0" Comment="" EdgeBand="NONE" Color="NONE" DxfFilename="" AssyNo="" CabName="" IsRemnant="True" PartNo="4" ShorthandName="" BandTempSymbol="" RoomName="">
+        </Part>
+        <Part Name="Drw Back" ID="2" W="101.6" L="203.2" X="220.7" Y="255.5" Rot="0" Comment="" EdgeBand="A-4,0,0,0" Color="None" DxfFilename="" AssyNo="R4N1" CabName="Drawer Box" IsRemnant="False" PartNo="3" ShorthandName="Dba" BandTempSymbol="A" RoomName="CNC Drawers">
+        </Part>
+        <Part Name="Drw R Side" ID="4" W="101.6" L="300.8884" X="318.4" Y="371.4" Rot="0" Comment="" EdgeBand="A-4,0,0,0" Color="None" DxfFilename="" AssyNo="R4N1" CabName="Drawer Box" IsRemnant="False" PartNo="2" ShorthandName="DwS" BandTempSymbol="A" RoomName="CNC Drawers">
+        </Part>
+      </Sheet>
+    </Material>
+  </LabelData>
+</JobData>
