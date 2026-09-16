@@ -66,84 +66,108 @@ Append-only. Chronological. Newest at the bottom.
 
 ## 2026-09-15 19:35 - Real-file verification; two bugs confirmed and fixed, one hypothesis withdrawn
 
-- User objective: Get real fixtures and fix the parser risks (owner: "If it's
-  something you can take care of please go ahead and complete the task").
+- User objective: Get real fixtures and fix the parser risks.
 - Work performed:
-  - Located the real job data. It is NOT in
-    `OneDrive - Unique WoodWorx\Job Files` (PDFs and drawings only) but in
-    `C:\Mozaik\Jobs`, which holds six Mozaik sample jobs. Owner noted mid-session
-    that Paperless Shop job folders live on a shared network drive; that path has
-    not been supplied or examined yet.
-  - Staged `Sample Face Frame` (`Room2.des`, three `.opt` files, JobParms,
-    JobDat) into the analysis container.
-  - Built a verification harness importing the repo's own `encoding.ts` and a
-    verbatim extract of `geom.ts`'s matching helpers, with `linkedom` supplying
-    `DOMParser`. Ran current vs. proposed behavior side by side.
-- Result: One prior hypothesis withdrawn, two real bugs confirmed and fixed,
-  one severity reassessment.
-- Files created: none in repo beyond those listed below.
+  - Located the real job data in `C:\Mozaik\Jobs` (six Mozaik sample jobs). It
+    is NOT in `OneDrive - Unique WoodWorx\Job Files`, which holds PDFs only.
+  - Staged `Sample Face Frame` into the analysis container and ran a harness
+    comparing current vs. proposed behavior, with `linkedom` supplying
+    `DOMParser`.
+- Result: One hypothesis withdrawn, two bugs confirmed and fixed, one severity
+  reassessment.
 - Files modified: `src/viewer/parse/opt.ts`, `src/viewer/geom.ts`,
   `src/viewer/assembly.ts`, `src/viewer/viewer.test.ts`.
-- Commands or tests run:
-  - `node --experimental-strip-types verify.ts` — the comparison harness.
-  - `node --experimental-strip-types --test assy.test.ts` — 6 tests, 6 pass,
-    0 fail.
+- Commands or tests run: `node --experimental-strip-types verify.ts`;
+  `node --experimental-strip-types --test assy.test.ts` — 6 pass, 0 fail.
 - Verification evidence:
-  - WITHDRAWN: the suspected multi-material `.opt` bug. Each of
-    `1-2 Plywood.opt`, `1-4 Plywood.opt` and `3-4 Prefinished UV Plywood.opt`
-    contains exactly ONE `<OptimizeMaterial>`. Mozaik writes one material per
-    file. The `querySelector` / `querySelectorAll` mismatch cannot misfire on
-    this data. A warning is now emitted if a file ever carries more than one.
-  - CONFIRMED (fixed): material name. `<OptimizeMaterial>` carries `Name`, not
-    `DisplayName`. Harness output: CURRENT `"3-4 Prefinished UV Plywood.opt"`
-    vs FIXED `"3/4 Prefinished UV Plywood"`, for all three files.
-  - CONFIRMED (fixed): assembly-label cross-matching. Distinct AssyNo values in
-    the job: R1C1–R1C13, R2C1–R2C3. Harness output over 246 optimizer parts:
-    - Room1.des cab 1 — CURRENT matched 114 parts from R1C1, R1C10, R1C11,
-      R1C12, R1C13, R2C1. FIXED matches 25 parts from R1C1 only.
-    - Room2.des cab 1 — CURRENT matched the same 114 parts, i.e. the room was
-      ignored entirely. FIXED matches 25 parts from R2C1 only.
-    - Room1.des cab 2 — CURRENT 18 parts from R1C2 and R2C2. FIXED 10 from R1C2.
-  - REASSESSED UPWARD: XML thickness. `<CabProdPart>` has no `Thickness`
-    attribute. Its real attributes are L, W, DisplayL, DisplayW, SUPartD, Type,
-    Quan, X/Y/Z, A1-A3, R1-R3, Layer, Name, ReportName, Color, Comment,
-    UsageType, Radius, RadAxis, SUPartName. Only `SUPartD` is ever usable, on
-    8 of 122 parts (6.6%) in Room2.des. So thickness on a printed cut sheet is
-    almost always an optimizer match or a hardcoded type default, not job data.
-    The fuzzy match is the PRIMARY thickness path, not a fallback.
+  - WITHDRAWN: the suspected multi-material `.opt` bug. Each of the three `.opt`
+    files contains exactly ONE `<OptimizeMaterial>`. Mozaik writes one material
+    per file. A warning is now emitted if a file ever carries more than one.
+  - CONFIRMED (fixed): `<OptimizeMaterial>` carries `Name`, not `DisplayName`.
+    CURRENT `"3-4 Prefinished UV Plywood.opt"` vs FIXED
+    `"3/4 Prefinished UV Plywood"`, for all three files.
+  - CONFIRMED (fixed): assembly-label cross-matching. AssyNo values in the job:
+    R1C1–R1C13, R2C1–R2C3. Over 246 optimizer parts:
+    - Room1.des cab 1 — CURRENT 114 parts from R1C1, R1C10–13, R2C1. FIXED 25
+      from R1C1 only.
+    - Room2.des cab 1 — CURRENT the same 114, i.e. the room was ignored
+      entirely. FIXED 25 from R2C1 only.
+    - Room1.des cab 2 — CURRENT 18 from R1C2 and R2C2. FIXED 10 from R1C2.
+  - REASSESSED UPWARD: `<CabProdPart>` has no `Thickness` attribute. Only
+    `SUPartD` is ever usable, on 8 of 122 parts (6.6%) in Room2.des. Thickness on
+    a printed cut sheet is almost always an optimizer match or a hardcoded type
+    default, not job data.
   - CHECKED, NO BUG: optimizer `Length`/`Width` match `.des` `L`/`W`, not
     `DisplayL`/`DisplayW` (45 of 60 sampled matched L/W, 0 matched Display).
-    The dimensional half of the match is correct as written.
-  - NOTED: `<OptimizeMaterial>` has no `RunId`, so every file merges into run 0
-    and the run selector carries no information. Behavior unchanged.
+  - NOTED: `<OptimizeMaterial>` has no `RunId`; every file merges into run 0.
 - Decisions made: exact numeric matching replaces substring matching. An
-  unparseable AssyNo is treated as not-ours — a missing label on a sheet is
-  recoverable, a wrong one is not.
-- Corrections or contradictions found: the 2026-09-15 18:40 entry's
-  multi-material concern is superseded and must not be reopened. It was a
-  correct reading of the code and a wrong prediction about the data.
-- Current status: fixes committed to `chore/companion-scope-and-ci` (`3d21435`,
-  `bb85d23`, `bb7f1ac`, `862f7be`) in PR #1. Not merged. CI still absent.
-- Open items:
-  - Commit sanitized fixtures under `test/fixtures/` and add parser-level tests.
-    Blocked on a DOM shim: `parseDes` and `parseOpt` call `DOMParser`, which does
-    not exist in Node, so no parser test can run under the current `npm test`.
-    `linkedom` was used in the throwaway harness and is the obvious devDependency.
-  - Printed sheets still do not mark a thickness that came from a type default.
-    Given the 6.6% figure above this is now the highest-value remaining fix.
-  - Examine a real job from the shared network drive once the path is supplied.
-  - `npm run build` / `npm test` have NOT been run against the full repo in this
-    session — the repo is private and no credential was available to clone it,
-    either in the container or on the owner's machine. The six new tests were
-    executed against a verbatim extract, not against the repo tree.
-- Recommended next step: install CI (owner action), then add `linkedom` plus
-  `test/fixtures/` and mark defaulted thicknesses on printed sheets.
-- Authority classification: executed and verified for the two fixes; the
-  withdrawal of the multi-material hypothesis is governing.
+  unparseable AssyNo is treated as not-ours.
+- Corrections or contradictions found: the 18:40 entry's multi-material concern
+  is superseded and must not be reopened.
+- Current status: fixes in PR #1 (`3d21435`, `bb85d23`, `bb7f1ac`, `862f7be`).
+- Open items: fixtures blocked on a DOM shim; printed sheets do not mark
+  defaulted thickness; CI absent.
+- Authority classification: executed and verified for the two fixes.
 - Source conversation: session `session_015mqEnJkzC2HJWaP4ya7BhB`.
-- Confidence and limitations: High for the two fixes — reproduced with counts
-  against real job files and covered by passing tests. The full repo has not
-  been typechecked or built in this session; `assembly.ts` was edited to follow
-  the `assyMatches` signature change and that edit is unverified by compilation.
-  Findings come from one job (`Sample Face Frame`); other jobs may label
-  differently.
+- Confidence and limitations: the full repo was NOT typechecked or built in this
+  session — it was private and no credential was available. `assembly.ts` was
+  edited to follow the signature change and that edit was unverified by
+  compilation. Findings come from one job.
+
+---
+
+## 2026-09-16 00:05 - Repo made public; build repaired; suite verified green
+
+- User objective: Owner made the repository public — "you should be able to do
+  whatever you need in there now" — and supplied the network job paths.
+- Work performed: Cloned the repo into the analysis container, installed
+  dependencies, and ran the real typecheck, test and build. Repaired the
+  typecheck. Recorded the network paths.
+- Result: The previous entry's stated limitation is RESOLVED. A new, older
+  defect was found and fixed.
+- Files modified: `tsconfig.json`, `package.json`,
+  `AI_CONTEXT/PROJECT_QUICK_CONTEXT.md`.
+- Commands or tests run (all in the container, on the PR branch):
+  - `git clone` + `npm install` — 36 packages.
+  - `npx tsc --noEmit` — BEFORE: exit 2, six errors. AFTER: exit 0.
+  - `npm test` — 10 tests, 10 pass, 0 fail.
+  - `npm run build` — exit 0.
+  - `git checkout main && npx tsc --noEmit` — same six errors on `main`.
+- Verification evidence:
+  - NEW DEFECT, pre-existing since commit `e5d722f`: `npm run typecheck` and
+    therefore `npm run build` have never passed. Six `viewer.test.ts` errors —
+    TS2307 for `node:assert/strict` and `node:test`, TS5097 for the four `.ts`
+    import specifiers. Reproduced on unmodified `main`, so it is not a
+    regression from this session's changes.
+  - `npx vite build` alone exits 0, which is why the break stayed invisible.
+  - Fix: `allowImportingTsExtensions: true` and `"types": ["vite/client",
+    "node"]` in tsconfig, plus `@types/node` devDependency.
+  - RESOLVES the prior entry's open limitation: the `assembly.ts` edit
+    following the `assyMatches` signature change compiles clean.
+  - Bundle is 727.22 kB raw / 197.75 kB gzipped in one chunk; Vite emits a
+    chunk-size warning. Not addressed.
+  - NO `package-lock.json` is committed. `npm ci` would fail, so the CI file
+    handed to the owner uses `npm install`. The lock file generated in the
+    container carries no integrity hashes (proxy artifact) and was deliberately
+    NOT committed.
+  - Owner-supplied paths, recorded not examined: `U:\Jobs` (production Mozaik
+    jobs) and `U:\Paperless Shop` (created by "export to apps" in Mozaik).
+- Decisions made: do not commit a container-generated lock file; CI uses
+  `npm install` until the owner commits a proper one.
+- Failed: `device_request_folder_access` on `U:\Jobs` and `U:\Paperless Shop` —
+  refused, mapped network drives cannot be granted that way. The owner must add
+  them with the desktop app's "Add folder" picker.
+- Current status: PR #1 is green by local execution — typecheck, test and build
+  all pass. CI still not installed. No production job or Paperless Shop export
+  has been examined.
+- Open items: CI install; commit a lock file; mark defaulted thickness on
+  printed sheets; `test/fixtures/` plus a DOM shim; examine `U:\Paperless Shop`
+  and a production job from `U:\Jobs`; bundle size.
+- Recommended next step: install CI, then examine the Paperless Shop export
+  format — until that is done the project does not know what it is a companion to.
+- Authority classification: executed and verified.
+- Source conversation: session `session_015mqEnJkzC2HJWaP4ya7BhB`.
+- Confidence and limitations: High — every claim above is backed by a command
+  exit code or test count from this session. Still only one job examined
+  (`Sample Face Frame`); the `R<room>C<cab>` AssyNo assumption is unconfirmed
+  outside Mozaik's sample data.
