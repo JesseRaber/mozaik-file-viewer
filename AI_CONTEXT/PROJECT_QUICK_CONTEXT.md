@@ -1,6 +1,6 @@
 # Project Quick Context
 
-Last updated: 2026-09-15.
+Last updated: 2026-09-16.
 
 ## Project purpose
 
@@ -15,14 +15,16 @@ single-file beta HTML is retired and its code must not be copied in.
 
 ## Verified installed state
 
-- HEAD of `main`: `b6f1cb16`. 3 commits, all 2026-09-08. No releases, no tags.
-- `package.json` v0.1.0, private. Vanilla TypeScript + Three.js 0.186 + JSZip,
-  built with Vite 6. No React, no CDN.
-- Tests: `src/viewer/viewer.test.ts`, 4 tests, all against synthetic demo data.
-  No real-job fixtures yet.
-- CI: NOT yet installed. `.github/workflows/ci.yml` could not be committed by
-  the GitHub connector in use (no `workflows` permission). The file content is
-  ready and waiting on the owner to add it.
+- Repo is PUBLIC as of 2026-09-16 (owner action). `main` HEAD `b6f1cb16`.
+- Branch `chore/companion-scope-and-ci` (PR #1) carries all current work.
+- Vanilla TypeScript + Three.js 0.186 + JSZip, built with Vite 6. No React,
+  no CDN.
+- On the PR branch, VERIFIED by execution on 2026-09-16:
+  - `npm run typecheck` exits 0.
+  - `npm run build` exits 0.
+  - `npm test` — 10 tests, 10 pass, 0 fail.
+- CI: still NOT installed. `.github/workflows/ci.yml` cannot be committed by the
+  GitHub connector (no `workflows` permission). File content is with the owner.
 
 ## Current configuration
 
@@ -31,6 +33,13 @@ Chromium, with a `webkitdirectory` fallback elsewhere. IndexedDB store `mfv-fs`
 holds directory handles and recent jobs. localStorage holds unit, title block,
 and part colors. No network egress.
 
+Job data locations on the owner's machine:
+- `C:\Mozaik\Jobs` — six Mozaik sample jobs (local, connected, analyzed).
+- `U:\Jobs` — production Mozaik jobs on a shared network drive. NOT yet examined.
+- `U:\Paperless Shop` — Paperless Shop job folders, produced by "export to apps"
+  in Mozaik. NOT yet examined. Format unknown to this project.
+- `OneDrive - Unique WoodWorx\Job Files` holds PDFs and drawings only, no job data.
+
 ## Current safety and authorization boundary
 
 Read-only against job folders. No write path to `.des` files. No Mozaik license
@@ -38,37 +47,41 @@ interaction.
 
 ## Recently completed
 
-- 2026-09-08: initial rewrite to vanilla TS/Three.js.
-- 2026-09-15: production-readiness assessment; companion scope decided;
-  governance files added.
+- 2026-09-15: readiness assessment; companion scope decided; governance added.
+- 2026-09-15: two parser bugs found against real files and fixed (optimizer
+  material name; assembly-label cross-matching) with 6 regression tests.
+- 2026-09-16: typecheck/build repaired — broken since the first commit.
 
 ## Current open items
 
-- No real `.des` / `.opt` / `-JobParms.dat` fixtures. Blocks the release gate.
-- `src/viewer/parse/opt.ts` reads the first `<OptimizeMaterial>` via
-  `querySelector` but collects `OptimizePart` from the whole document via
-  `querySelectorAll`. On a multi-material `.opt` every part would be attributed
-  to material #1. UNVERIFIED — needs a real multi-material file.
-- Optimizer-to-part matching in `parse/load.ts` `applyOptimizerThickness()` and
-  `assembly.ts` `rows()` uses substring name match plus `dimClose(..., 1.2)`
-  with first-hit `break`. A wrong thickness can land silently on a cut sheet.
-- `thicknessSource` is shown only in a hover tooltip, not on printed sheets.
+- CI not installed (owner action).
+- No `package-lock.json` is committed, so CI must use `npm install`, not
+  `npm ci`. Owner should run `npm install` locally and commit the lock file.
+- Printed sheets do not mark a thickness that came from a type default. Given
+  that only 6.6% of parts carry any usable XML thickness, this is the highest
+  -value remaining correctness fix.
+- No `test/fixtures/` yet. Parser-level tests are blocked on a DOM shim:
+  `parseDes` and `parseOpt` call `DOMParser`, absent in Node. `linkedom` is the
+  obvious devDependency.
+- `U:\Paperless Shop` export format has never been examined. Until it is, the
+  project does not actually know what Paperless Shop consumes.
 - Face-frame sheet is hidden unless a part of type `Frame` exists; frameless
   jobs get no cut sheet.
 - Recent-jobs persistence is Chromium-only (`showDirectoryPicker`).
-- Two live WebGL contexts (main engine + assembly overlay, the latter with
-  `preserveDrawingBuffer: true`) and no `webglcontextlost` handler.
+- Two live WebGL contexts and no `webglcontextlost` handler.
+- Bundle is 727 kB (198 kB gzipped) in one chunk; Vite warns. Not addressed.
 
 ## Known stale or conflicting records
 
 - The claude.ai Project description still reads "replace Mozaik Paperless Shop."
-  Superseded by the owner scope decision of 2026-09-15 recorded in
-  `PROJECT_ROADMAP_STATUS.md`.
+  Superseded by the owner scope decision recorded in `PROJECT_ROADMAP_STATUS.md`.
+- The 2026-09-15 18:40 journal entry's suspected multi-material `.opt` bug is
+  WITHDRAWN. Mozaik writes one material per file. Do not reopen.
 
 ## Immediate next step
 
-Commit sanitized real-job fixtures, then verify and fix `parse/opt.ts` and the
-part-matching logic against them.
+Install CI, then examine `U:\Paperless Shop` and a production job from `U:\Jobs`
+to confirm the AssyNo format assumption holds outside the sample jobs.
 
 ## Current authority files
 
@@ -77,11 +90,13 @@ part-matching logic against them.
 
 ## Recent journal entries
 
-- `AI_CONTEXT/PROJECT_ACTIVITY_JOURNAL.md` — 2026-09-15, production-readiness
-  scan and scope decision.
+- `AI_CONTEXT/PROJECT_ACTIVITY_JOURNAL.md` — 2026-09-16, build repair and
+  execution-verified state.
+- `AI_CONTEXT/PROJECT_ACTIVITY_JOURNAL.md` — 2026-09-15 19:35, real-file
+  verification and the two parser fixes.
 
 ## Limitations
 
-The parser-correctness risks above were identified by reading source, not by
-running against real Mozaik job files. No build or test run has been executed
-by an agent in this project. No shop-floor pilot has been run.
+All findings so far come from ONE job, Mozaik's `Sample Face Frame`. No
+production job and no Paperless Shop export has been examined. No shop-floor
+pilot has been run.
