@@ -44,7 +44,8 @@ export function parseGcode(text: string, name: string): GFile {
   let cur: GEpisode | null = null;
   let maxFeedZ = 0;
   const scale = () => (f.unit === "in" ? 25.4 : 1);
-  const safe = () => (f.unit === "in" ? 1.4 : 35);
+  /** Safe (clearance) height in mm — callers compare against values already scaled to mm. */
+  const safe = () => 35;
 
   const close = () => {
     if (cur) {

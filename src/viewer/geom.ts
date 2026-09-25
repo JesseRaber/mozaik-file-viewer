@@ -361,12 +361,21 @@ export function assyCodes(roomFile: string, cabNo: string): string[] {
   return codes;
 }
 
+/** A code only matches when not followed by another digit, so C1 never matches C12. */
+function hasCode(u: string, code: string): boolean {
+  const esc = code.toUpperCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`${esc}(?!\\d)`).test(u);
+}
+
 export function assyMatches(assy: string, codes: string[], cabNo: string): boolean {
+  // No assembly code: can't tell cabinets apart, so name + size matching decides.
   if (!assy) return true;
   const u = assy.toUpperCase();
-  if (codes.some((c) => u === c.toUpperCase() || u.includes(c.toUpperCase()))) return true;
-  if (cabNo && (u.endsWith(`C${cabNo}`) || u.includes(`CAB${cabNo}`) || u.includes(`#${cabNo}`)))
-    return true;
+  // A room-qualified code (R2C1) must match this room exactly, not just the cabinet number.
+  const roomCodes = codes.filter((c) => /^R\d+[CN]/i.test(c));
+  if (/R\d+[CN]\d+/.test(u) && roomCodes.length) return roomCodes.some((c) => hasCode(u, c));
+  if (codes.some((c) => hasCode(u, c))) return true;
+  if (cabNo && (hasCode(u, `C${cabNo}`) || hasCode(u, `#${cabNo}`))) return true;
   return false;
 }
 

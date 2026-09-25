@@ -62,8 +62,11 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
     );
     cam.lookAt(target);
   }
+  let lastW = 0;
   function resize() {
     const w = img.clientWidth || 480;
+    if (w === lastW) return;
+    lastW = w;
     const h = Math.max(320, w * 0.72);
     renderer.setSize(w, h, false);
     cam.aspect = w / h;
@@ -246,6 +249,7 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
     alive = false;
     ac.abort();
     renderer.dispose();
+    renderer.forceContextLoss();
     for (const pp of engine.parts) {
       pp.mesh.visible = true;
       pp.mesh.position.copy(pp.home).addScaledVector(pp.dir, state.explode);
