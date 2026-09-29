@@ -1,0 +1,42 @@
+name: Publish wiki
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - wiki/**
+      - .github/workflows/publish-wiki.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-wiki
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push wiki/ pages to the Wiki tab
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          tmp="$(mktemp -d)"
+          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" "$tmp"
+          cp wiki/Home.md wiki/Getting-Started.md wiki/Job-Files.md \
+            wiki/Privacy-and-Security.md wiki/FAQ.md wiki/_Sidebar.md wiki/_Footer.md "$tmp/"
+          cd "$tmp"
+          git add Home.md Getting-Started.md Job-Files.md Privacy-and-Security.md FAQ.md _Sidebar.md _Footer.md
+          if git diff --cached --quiet; then
+            echo "No wiki changes"
+            exit 0
+          fi
+          git commit -m "Publish shop wiki from ${GITHUB_SHA}"
+          git push origin HEAD:master
