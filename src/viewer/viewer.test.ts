@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildDemoJob } from "./demo.ts";
 import { decodeBytes, xmlPayload } from "./encoding.ts";
-import { partAABB, shakerOpening } from "./geom.ts";
+import { assyCodes, assyMatches, partAABB, shakerOpening } from "./geom.ts";
 import { parseGcode } from "./parse/gcode.ts";
 
 test("demo cabinet occupies a 24×24×34.5 envelope plus front frame", () => {
@@ -89,4 +89,26 @@ test("G-code parser honors G20 inches and G21 millimetres", () => {
   assert.ok(mmCut, "mm cut episode");
   const mxs = mmCut.pts.map((p) => p[0]);
   assert.ok(mxs.some((x) => Math.abs(x - 80) < 0.2), `mm X unscaled, got ${mxs.join(",")}`);
+});
+
+test("inch G-code cutting above Z0 still yields toolpaths and sheet thickness", () => {
+  const g = parseGcode(
+    "G20 G90\nG0 X1 Y1 Z1.5\nG1 Z0.76 F80\nG1 X5\nG0 Z1.5\nG0 X10\nG1 Z0.1\nG1 X12\nG0 Z1.5\nM30\n",
+    "spoilboard.TXT",
+  );
+  assert.equal(g.episodes.length, 2, "two separate cuts");
+  assert.ok(g.thickness && Math.abs(g.thickness - 0.76 * 25.4) < 0.01, `thickness ${g.thickness}`);
+});
+
+test("assembly codes do not match other cabinets or rooms", () => {
+  const codes = assyCodes("Room1.des", "1");
+  assert.ok(assyMatches("R1C1", codes, "1"));
+  assert.ok(assyMatches("C1", codes, "1"));
+  assert.ok(assyMatches("CAB-1", codes, "1"));
+  assert.ok(assyMatches("#1", codes, "1"));
+  assert.ok(!assyMatches("R1C12", codes, "1"), "C1 is not C12");
+  assert.ok(!assyMatches("R1C10", codes, "1"), "C1 is not C10");
+  assert.ok(!assyMatches("R2C1", codes, "1"), "other room");
+  assert.ok(!assyMatches("CAB10", codes, "1"));
+  assert.ok(!assyMatches("#10", codes, "1"));
 });

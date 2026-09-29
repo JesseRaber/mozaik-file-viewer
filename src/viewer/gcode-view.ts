@@ -52,6 +52,7 @@ export function openGcode(host: HTMLElement) {
     ac.abort();
     if (group) disposeGeo(group);
     renderer.dispose();
+    renderer.forceContextLoss();
     host.classList.remove("open");
     clear(host);
   }
@@ -67,9 +68,14 @@ export function openGcode(host: HTMLElement) {
     camera.lookAt(target);
   }
 
+  let lastW = 0,
+    lastH = 0;
   function resize() {
     const w = view.clientWidth || 1;
     const h = view.clientHeight || 1;
+    if (w === lastW && h === lastH) return;
+    lastW = w;
+    lastH = h;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
