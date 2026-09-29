@@ -12,6 +12,13 @@ Open a Jobs folder (or drop a `.zip`) and you get:
 
 A procedural 24" face-frame demo loads without any shop files.
 
+## Wiki
+
+Shop-oriented documentation (getting started, job files, privacy, FAQ):
+
+- Source in this repo: [wiki/Home.md](wiki/Home.md)
+- GitHub Wiki tab (after the first page is saved there): https://github.com/JesseRaber/mozaik-file-viewer/wiki
+
 ## Privacy
 
 Nothing is uploaded. IndexedDB stores File System Access handles on Chromium. localStorage stores unit, title-block, and part-color preferences.
