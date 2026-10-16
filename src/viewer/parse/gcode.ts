@@ -104,11 +104,11 @@ export function parseGcode(text: string, name: string): GFile {
       for(let k=1;k<=steps;k++) pts.push([cx+radius*Math.cos(a+delta*k/steps),cy+radius*Math.sin(a+delta*k/steps),z+(nz-z)*k/steps]);
       pts[pts.length-1]=[nx,ny,nz];
     } else pts.push([nx,ny,nz]);
-    if (nz < 35.56 || z < 35.56) {
+    { // Preview every feed move; clearance height is a machine/post convention.
       if (!cur) cur={tool,pts:[[x,y,z]],zmin:Math.min(z,nz)};
       cur.pts.push(...pts);cur.zmin=Math.min(cur.zmin,nz);
       if (nz>0 && nz<35.56) maxFeedZ=Math.max(maxFeedZ,nz);
-    } else close();
+    }
     x=nx;y=ny;z=nz;
   }
   close();

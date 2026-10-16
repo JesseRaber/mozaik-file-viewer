@@ -82,3 +82,8 @@ test("duplicate cabinet IDs withhold optimizer associations",async()=>{
  const j=await loadItems([file("Job/Room1.des",duplicated),file("Job/a.opt",opt(1,6,"R1C1"))]);
  assert.ok(j.rooms[0].products.every(p=>p.parts[0].thicknessSource==="default"));assert.ok(j.warnings.length);
 });
+
+test("high-Z feed moves are not silently discarded",()=>{
+ const g=parseGcode("G21 G90\nG0 X0 Y0 Z80\nG1 X20 Z50", "thick-stock");
+ assert.deepEqual(g.episodes.at(-1)?.pts.at(-1),[20,0,50]);
+});
