@@ -25,7 +25,10 @@ export function openParms(host: HTMLElement) {
   }) as HTMLInputElement;
   const printBtn = el("button", { type: "button", text: "Print" });
   const close = el("button", { type: "button", class: "sheet-close", text: "Close" });
-  bar.append(title, sel, search, printBtn, close);
+  const base = el("select", { "aria-label": "Parameter category numbering" }) as HTMLSelectElement;
+  base.append(el("option", {value: "", text: "All categories (numbering unverified)"}),
+    el("option", {value: "0", text: "Categories start at 0"}), el("option", {value: "1", text: "Categories start at 1"}));
+  bar.append(title, sel, base, search, printBtn, close);
   const body = el("div", { class: "prm-body" });
   const cats = el("div", { class: "prm-cats" });
   const tblWrap = el("div", { class: "prm-tbl-wrap" });
@@ -39,6 +42,7 @@ export function openParms(host: HTMLElement) {
   };
 
   let cat = 0;
+  base.value = libs[+sel.value]?.categoryBase?.toString() ?? "";
   function render() {
     const L = libs[+sel.value];
     clear(cats);
@@ -48,7 +52,7 @@ export function openParms(host: HTMLElement) {
       return;
     }
     const q = search.value.trim().toLowerCase();
-    L.cats.forEach((c, i) => {
+    if (base.value !== "") L.cats.forEach((c, i) => {
       const b = el("button", { type: "button", text: c, class: i === cat ? "on" : "" });
       b.onclick = () => {
         cat = i;
@@ -60,7 +64,7 @@ export function openParms(host: HTMLElement) {
     for (const h of ["Code", "Description", "Value"]) head.append(el("th", { text: h }));
     table.append(head);
     for (const p of L.params) {
-      const inCat = p.cat === cat || p.cat === cat + 1;
+      const inCat = base.value === "" || p.cat === cat + Number(base.value);
       if (!inCat) continue;
       if (q && !`${p.code} ${p.desc}`.toLowerCase().includes(q)) continue;
       const tr = el("tr");
@@ -72,7 +76,8 @@ export function openParms(host: HTMLElement) {
       table.append(tr);
     }
   }
-  sel.onchange = render;
+  sel.onchange = () => { cat = 0; base.value = libs[+sel.value]?.categoryBase?.toString() ?? ""; render(); };
+  base.onchange = () => { cat = 0; render(); };
   search.oninput = render;
   printBtn.onclick = () =>
     printHtml(

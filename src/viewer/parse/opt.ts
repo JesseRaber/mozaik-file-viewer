@@ -8,6 +8,18 @@ function num(el: Element, name: string, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/**
+ * Parse one Mozaik optimizer file.
+ *
+ * Mozaik writes ONE <OptimizeMaterial> per .opt file — a job with three
+ * materials produces three files (e.g. "1-2 Plywood.opt", "1-4 Plywood.opt",
+ * "3-4 Prefinished UV Plywood.opt"). mergeRuns() is what brings them back
+ * together into a single run.
+ *
+ * Observed attributes on <OptimizeMaterial>: Name, Thickness, Width, Length,
+ * HasGrain, WidthTrim, LengthTrim, FeedRate, Comment, CustomerName, Timestamp.
+ * Note there is no RunId, so every file merges into run 0.
+ */
 export function parseOpt(
   text: string,
   fname: string,
@@ -27,19 +39,19 @@ export function parseOpt(
   if (!om) {
     return { run: null, warning: { file: fname, message: "No <OptimizeMaterial>" } };
   }
-  const runId = num(om, "RunId");
-  const mat = {
-    name: om.getAttribute("DisplayName") || fname,
-    thickness: num(om, "Thickness"),
-    parts: [...doc.querySelectorAll("OptimizePart")].map((op) => ({
-      id: num(op, "PartID"),
-      name: op.getAttribute("Name") || "",
-      L: num(op, "Length"),
-      W: num(op, "Width"),
-      assy: op.getAttribute("AssyNo") || "",
+  const materials = [...doc.querySelectorAll("OptimizeMaterial")].map(el => ({
+    name: el.getAttribute("Name") || el.getAttribute("DisplayName") || fname,
+    thickness: num(el, "Thickness"),
+    parts: [...el.querySelectorAll("OptimizePart")].map(op => ({
+      id: num(op, "PartID"), name: op.getAttribute("Name") || "",
+      L: num(op, "Length"), W: num(op, "Width"), assy: op.getAttribute("AssyNo") || "",
     })),
-  };
-  return { run: { runId, materials: [mat] } };
+  }));
+  const runIds = new Set([...doc.querySelectorAll("OptimizeMaterial")].map(el => num(el, "RunId")));
+  if (runIds.size !== 1 || materials.some(m => !(m.thickness > 0) || m.parts.some(p => !(p.L > 0 && p.W > 0))))
+    return {run: null, warning: {file: fname, message: "Invalid optimizer dimensions or mixed run identities; file rejected"}};
+  const run: OptRun = {runId: num(om, "RunId"), materials};
+  return { run };
 }
 
 export function mergeRuns(into: Record<string, OptRun>, run: OptRun) {

@@ -46,6 +46,8 @@ export function parseJobParms(
         lib: name.replace(/-JobParms\.dat$/i, ""),
         tmpl: tmplName,
         cats,
+        categoryBase: params.every(p => p.cat >= 1 && p.cat <= cats.length) && params.some(p => p.cat === cats.length) ? 1 :
+          params.every(p => p.cat >= 0 && p.cat < cats.length) && params.some(p => p.cat === 0) ? 0 : undefined,
         params,
       },
     };

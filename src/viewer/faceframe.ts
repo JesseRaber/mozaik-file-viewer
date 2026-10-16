@@ -42,6 +42,9 @@ export function openFaceFrame(host: HTMLElement) {
     body.append(svgWrap, tableWrap);
     const tb = titleBlock();
     page.append(h2, meta, body, tb);
+    const defaults = layout!.members.filter(m => m.part.thicknessSource === "default").length;
+    page.append(el("p", {class: "sheet-note", text: defaults ? `${defaults} frame thicknesses are defaults; verify before cutting. Drawing dimensions are projected extents, not machining approval.` : "Companion reference. Drawing dimensions are projected extents; no pocket machining is inferred."}));
+    if (state.job?.warnings.length) page.append(el("p", {class:"sheet-note",text:"Import warnings remain. Review source association before production."}));
 
     const bb = layout!.bb;
     const pad = 40;

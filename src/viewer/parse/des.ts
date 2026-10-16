@@ -89,6 +89,7 @@ export function parseDes(text: string, fname: string): { room: Room | null; warn
     });
   });
 
+  const invalid: string[] = [];
   const products: Product[] = [];
   roomEl.querySelectorAll("Products > Product").forEach((pEl) => {
     const prod: Product = {
@@ -115,6 +116,11 @@ export function parseDes(text: string, fname: string): { room: Room | null; warn
       const L = num(cp, "L");
       const W = num(cp, "W");
       const type = cp.getAttribute("Type") || "Unknown";
+      const rawQty = cp.getAttribute("Quan");
+      const qty = rawQty == null ? 1 : Number(rawQty);
+      if (!Number.isInteger(qty) || qty < 0 || rawQty === "") { invalid.push("Invalid quantity"); return; }
+      if (qty === 0) return;
+      if (!(L > 0 && W > 0)) { invalid.push("Invalid or missing part dimensions"); return; }
       const xmlTh = readThicknessAttr(cp);
       const thickness = xmlTh ?? defaultThickness(type);
       const holes: HoleOp[] = [];
@@ -144,7 +150,7 @@ export function parseDes(text: string, fname: string): { room: Room | null; warn
         name: cp.getAttribute("Name") || `Part ${idx}`,
         type,
         layer: num(cp, "Layer"),
-        qty: num(cp, "Quan", 1),
+        qty,
         W,
         L,
         thickness,
@@ -166,6 +172,7 @@ export function parseDes(text: string, fname: string): { room: Room | null; warn
     products.push(prod);
   });
 
+  if (invalid.length) return { room: null, warning: { file: fname, message: `${invalid[0]}; room rejected (${invalid.length} invalid records)` } };
   if (!products.length) {
     return { room: null, warning: { file: fname, message: "Room has no products" } };
   }

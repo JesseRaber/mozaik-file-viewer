@@ -33,16 +33,18 @@ export function unitLabel(): string {
 
 /** Nearest 1/16" for drawings and hover. */
 export function frac(vMm: number): string {
-  const inches = vMm / 25.4;
+  if (!Number.isFinite(vMm)) return "—";
+  const sign = vMm < 0 && Math.round(Math.abs(vMm / 25.4) * 16) > 0 ? "-" : "";
+  const inches = Math.abs(vMm / 25.4);
   const whole = Math.floor(inches + 1e-9);
   let n = Math.round((inches - whole) * 16);
   let d = 16;
-  if (n === 16) return `${whole + 1}"`;
+  if (n === 16) return `${sign}${whole + 1}"`;
   while (n && n % 2 === 0) {
     n /= 2;
     d /= 2;
   }
-  return n ? `${whole ? `${whole} ` : ""}${n}/${d}"` : `${whole}"`;
+  return n ? `${sign}${whole ? `${whole} ` : ""}${n}/${d}"` : `${sign}${whole}"`;
 }
 
 export function dim(vMm: number): string {

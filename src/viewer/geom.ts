@@ -22,6 +22,12 @@ const TYPE_THICK: Record<string, number> = {
   Metal: 19,
 };
 
+/**
+ * Real Mozaik <CabProdPart> elements carry none of these except SUPartD, and
+ * that only on a small minority of parts (8 of 122 in Sample Face Frame's
+ * Room2.des). In practice thickness comes from the optimizer match or, failing
+ * that, from TYPE_THICK above. Treat a "default" thicknessSource as a guess.
+ */
 const THICK_ATTRS = [
   "Thickness",
   "Thick",
@@ -277,44 +283,7 @@ export function computeFrame(prod: Product): FrameLayout | null {
       if (X1 - X0 > 15 && Z1 - Z0 > 15) openings.push({ x0: X0, x1: X1, z0: Z0, z1: Z1 });
     }
 
-  const T = 3;
-  for (const m of members) {
-    const ends =
-      m.ori === "H"
-        ? [
-            { at: m.x0, side: -1 },
-            { at: m.x1, side: 1 },
-          ]
-        : [
-            { at: m.z0, side: -1 },
-            { at: m.z1, side: 1 },
-          ];
-    for (const e of ends) {
-      const butt = members.some((o) => {
-        if (o === m) return false;
-        if (m.ori === "H") {
-          return (
-            ((Math.abs(o.x1 - m.x0) < T && e.side < 0) ||
-              (Math.abs(o.x0 - m.x1) < T && e.side > 0)) &&
-            Math.min(o.z1, m.z1) - Math.max(o.z0, m.z0) > m.w * 0.5
-          );
-        }
-        return (
-          ((Math.abs(o.z1 - m.z0) < T && e.side < 0) ||
-            (Math.abs(o.z0 - m.z1) < T && e.side > 0)) &&
-          Math.min(o.x1, m.x1) - Math.max(o.x0, m.x0) > m.w * 0.5
-        );
-      });
-      if (!butt) continue;
-      const setback = 22;
-      const n = m.w >= 35 ? 2 : 1;
-      for (let k = 0; k < n; k++) {
-        const off = n === 1 ? m.w / 2 : k === 0 ? m.w * 0.27 : m.w * 0.73;
-        if (m.ori === "H") m.pockets.push({ x: e.at - e.side * setback, z: m.z0 + off, ang: 0 });
-        else m.pockets.push({ x: m.x0 + off, z: e.at - e.side * setback, ang: 90 });
-      }
-    }
-  }
+  // Pocket machining is not inferred from member intersections.
   return { members, openings, bb };
 }
 
@@ -350,24 +319,40 @@ export function dimClose(aL: number, aW: number, bL: number, bW: number, tol = 1
   return pairs.some((p) => p[0]);
 }
 
-export function assyCodes(roomFile: string, cabNo: string): string[] {
-  const codes: string[] = [];
-  const m = (roomFile || "").match(/Room\s*(\d+)/i);
-  const c = cabNo || "1";
-  if (m) {
-    codes.push(`R${m[1]}C${c}`, `R${m[1]}N${c}`);
-  }
-  codes.push(`C${c}`, `CAB${c}`, `CAB-${c}`);
-  return codes;
+/**
+ * Parse an optimizer AssyNo. Mozaik writes "R<room>C<cab>" (e.g. "R1C13");
+ * "C4", "CAB-2" and "#7" are tolerated for jobs that label differently.
+ */
+export function parseAssy(assy: string): { room: number | null; cab: number } | null {
+  const u = (assy || "").toUpperCase().replace(/[\s_-]/g, "");
+  const m = u.match(/^(?:R(\d+))?(?:CAB|C|N|#)(\d+)$/);
+  if (!m) return null;
+  return { room: m[1] ? Number(m[1]) : null, cab: Number(m[2]) };
 }
 
-export function assyMatches(assy: string, codes: string[], cabNo: string): boolean {
-  if (!assy) return true;
-  const u = assy.toUpperCase();
-  if (codes.some((c) => u === c.toUpperCase() || u.includes(c.toUpperCase()))) return true;
-  if (cabNo && (u.endsWith(`C${cabNo}`) || u.includes(`CAB${cabNo}`) || u.includes(`#${cabNo}`)))
-    return true;
-  return false;
+/** Room number from a room file name such as "Room1.des". */
+export function roomNumber(roomFile: string): number | null {
+  const m = (roomFile || "").match(/Room\s*(\d+)/i);
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * Does this optimizer label belong to this cabinet?
+ *
+ * Compares room and cabinet as NUMBERS. Substring matching is wrong here:
+ * "R1C1" must not claim "R1C13"'s parts, and Room 2's cabinet 1 must not claim
+ * Room 1's. An unparseable label is treated as not ours — a missing label on a
+ * sheet is recoverable, a wrong one is not.
+ */
+export function assyMatches(assy: string, roomFile: string, cabNo: string): boolean {
+  if (!assy) return false;
+  const a = parseAssy(assy);
+  if (!a) return false;
+  const cab = Number(cabNo || "1");
+  if (!Number.isFinite(cab) || a.cab !== cab) return false;
+  const rn = roomNumber(roomFile);
+  if (a.room != null) return rn != null && a.room === rn;
+  return true;
 }
 
 export function applyRots(rots: Rot[]): number[][] {

@@ -53,3 +53,18 @@ npm run dev
 ## Not a Mozaik replacement
 
 This tool does not write `.des` files, does not nest, and does not talk to a Mozaik license. It is a shop-floor companion for looking at a job you already have.
+
+
+## Companion preview limits
+
+This is a read-only companion viewer. Full Paperless Shop replacement belongs in the separate WoodWorx Paperless Shop project. This candidate requires shop acceptance before production use.
+
+- Open one job folder at a time. Duplicate cabinet identifiers, ambiguous material matches and conflicting measurements are reported rather than guessed.
+- Include only the intended matching Paperless export. Multiple exports are not ranked by size or presumed current. Original stated thickness survives conflicts.
+- Parameter numbering is recognized only when its range establishes zero- or one-based categories; otherwise all parameters are shown until the user selects a numbering convention.
+- G-code previews support explicit G20/G21, G90/G91, XY-plane G0/G1/G2/G3, incremental I/J or signed R arcs, and standard spindle/tool blocks. Macros, canned cycles, offsets/compensation and unsupported commands withhold the preview. G54 is treated as a single work coordinate frame; the preview does not model machine/tool offsets. A preview is not machining approval.
+- Frame drawings are illustrations of source parts. Pocket operations are not inferred. Default thicknesses need verification.
+
+### Local validation and recovery
+
+Use Node 22.18+ or 24, `npm ci --ignore-scripts`, `npm test`, then `npm run build`. `npm run preview` serves the built assets on loopback. Keep the last accepted build/source revision; revert to it if a candidate fails acceptance. No job file write-back occurs. Offline operation requires the local server and already-installed assets; this is not a service-worker-installed application.
