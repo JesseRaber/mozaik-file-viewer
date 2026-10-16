@@ -23,8 +23,8 @@ const db = {
     const d = await this.open();
     return new Promise((res) => {
       const t = d.transaction("kv").objectStore("kv").get(k);
-      t.onsuccess = () => res(t.result as T);
-      t.onerror = () => res(undefined);
+      t.onsuccess = () => { d.close(); res(t.result as T); };
+      t.onerror = () => { d.close(); res(undefined); };
     });
   },
   async set(k: string, v: unknown) {
@@ -32,8 +32,8 @@ const db = {
     return new Promise<void>((res) => {
       const t = d.transaction("kv", "readwrite");
       t.objectStore("kv").put(v, k);
-      t.oncomplete = () => res();
-      t.onerror = () => res();
+      t.oncomplete = () => { d.close(); res(); };
+      t.onerror = t.onabort = () => { d.close(); res(); };
     });
   },
 };
@@ -80,40 +80,43 @@ export async function openJobFolder(): Promise<void> {
     }
   ).showDirectoryPicker;
   if (picker) {
+    let dir: FileSystemDirectoryHandle | null = null;
     try {
-      const root = await db.get<FileSystemDirectoryHandle>("jobsRoot");
+      const root = await db.get<FileSystemDirectoryHandle>("jobsRoot").catch(() => undefined);
       const opts: DirPickerOpts = { id: "mfvJobs", mode: "read" };
       if (root) opts.startIn = root;
-      const dir = await picker(opts);
-      await loadFromHandle(dir);
-      return;
+      dir = await picker(opts);
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
+      /* picker unavailable here (e.g. cross-origin iframe) — fall back to <input> */
+    }
+    if (dir) {
+      await loadFromHandle(dir);
+      return;
     }
   }
-  const input = document.createElement("input");
-  input.type = "file";
-  input.multiple = true;
-  input.setAttribute("webkitdirectory", "");
-  input.onchange = async () => {
-    if (!input.files?.length) return;
-    const job = await loadItems(await filesToItems([...input.files]));
-    setJob(job);
-  };
-  input.click();
+  const files = await pickFiles((input) => input.setAttribute("webkitdirectory", ""));
+  if (files.length) setJob(await loadItems(await filesToItems(files)));
 }
 
 export async function openFiles() {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.multiple = true;
-  input.accept = ".des,.sbk,.zip,.dat,.opt,.txt,.nc,.tap,.gcode,.ngc,.cnc";
-  input.onchange = async () => {
-    if (!input.files?.length) return;
-    const job = await loadItems(await filesToItems([...input.files]));
-    setJob(job);
-  };
-  input.click();
+  const files = await pickFiles((input) => {
+    input.accept = ".des,.sbk,.zip,.dat,.opt,.txt,.nc,.tap,.gcode,.ngc,.cnc,.mzklbl,.mzkcut,.mzkasy,.xml";
+  });
+  if (files.length) setJob(await loadItems(await filesToItems(files)));
+}
+
+/** Resolves with the chosen files (empty on cancel) so load errors reach the caller's catch. */
+function pickFiles(setup: (input: HTMLInputElement) => void): Promise<File[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    setup(input);
+    input.onchange = () => resolve([...(input.files || [])]);
+    input.addEventListener("cancel", () => resolve([]));
+    input.click();
+  });
 }
 
 export async function setJobsRoot() {

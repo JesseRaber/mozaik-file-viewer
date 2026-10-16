@@ -1,8 +1,10 @@
+import { partRowKey, sourceQuantity } from "./part-identity";
 import * as THREE from "three";
-import { assyCodes, assyMatches, dimClose, groupOf, normName } from "./geom";
+import { assyMatches, dimClose, groupOf, normName } from "./geom";
 import { printHtml } from "./print";
 import { currentProduct, currentRoom, state } from "./store";
 import type { Engine, PartView } from "./engine";
+import type { Part } from "./types";
 import { dim, unitLabel } from "./units";
 import { clear, el } from "./dom";
 
@@ -26,7 +28,13 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
   const img = el("div", { class: "asm-img" });
   const tableWrap = el("div", { class: "sheet-table-wrap" });
   const table = el("table", { class: "sheet-table" });
-  tableWrap.append(table);
+  const note = el("p", { class: "sheet-note" });
+  note.style.margin = "8px 2px 0";
+  note.style.fontSize = "12px";
+  note.style.lineHeight = "1.45";
+  note.style.color = "#8a6d3b";
+  note.hidden = true;
+  tableWrap.append(table, note);
   body.append(img, tableWrap);
   page.append(head, sub, body);
   host.append(bar, el("div", { class: "sheet-scroll" }, page));
@@ -62,8 +70,11 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
     );
     cam.lookAt(target);
   }
+  let lastW = 0;
   function resize() {
     const w = img.clientWidth || 480;
+    if (w === lastW) return;
+    lastW = w;
     const h = Math.max(320, w * 0.72);
     renderer.setSize(w, h, false);
     cam.aspect = w / h;
@@ -93,15 +104,31 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
     { passive: false, signal: ac.signal },
   );
 
+  // A thickness the job never stated is a guess from the part type. Mark it on
+  // screen and on paper rather than letting it print as if it were measured.
+  function thickCell(r: Row): HTMLElement {
+    const td = el("td", {
+      class: "mono",
+      text: r.thSrc === "default" ? `${dim(r.th)} *` : dim(r.th),
+    });
+    if (r.thSrc === "default") {
+      td.style.background = "#fff4d6";
+      td.style.color = "#6b4b00";
+    }
+    return td;
+  }
+
   type Row = {
     name: string;
     type: string;
     L: number;
     W: number;
     th: number;
+    thSrc: Part["thicknessSource"];
     qty: number;
     labels: string;
     mat: string;
+    band: string;
     members: PartView[];
   };
 
@@ -111,7 +138,8 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
       if (groupOf(pp.part.type) === "Doors & fronts") continue;
       if (groupOf(pp.part.type) === "Face frame") continue;
       if (groupOf(pp.part.type) === "Hardware") continue;
-      const key = `${normName(pp.part.name)}|${Math.round(pp.part.L)}x${Math.round(pp.part.W)}`;
+      if (sourceQuantity(pp.part) === 0) continue;
+      const key = partRowKey(pp.part);
       let g = map.get(key);
       if (!g) {
         g = {
@@ -120,30 +148,28 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
           L: pp.part.L,
           W: pp.part.W,
           th: pp.part.thickness,
+          thSrc: pp.part.thicknessSource,
           qty: 0,
           labels: "",
           mat: pp.part.material || "",
+          band: pp.part.edgeBand || "",
           members: [],
         };
         map.set(key, g);
       }
-      g.qty += 1;
+      g.qty += sourceQuantity(pp.part);
+      if (pp.part.labelNo) g.labels = [g.labels, String(pp.part.labelNo)].filter(Boolean).join(", ");
       g.members.push(pp);
     }
     const list = [...map.values()];
     const run = runs[runSel.value];
-    const codes = assyCodes(room?.file || "", prod?.cabNo || "1");
     if (run) {
       for (const mat of run.materials) {
         for (const op of mat.parts) {
-          if (!assyMatches(op.assy, codes, prod?.cabNo || "1")) continue;
-          const hit = list.find(
-            (g) =>
-              (normName(g.name) === normName(op.name) ||
-                normName(g.name).includes(normName(op.name)) ||
-                normName(op.name).includes(normName(g.name))) &&
-              dimClose(g.L, g.W, op.L, op.W, 1.2),
-          );
+          if (!assyMatches(op.assy, room?.file || "", prod?.cabNo || "1")) continue;
+          const candidates = list.filter(g => normName(g.name) !== "" && normName(g.name) === normName(op.name) &&
+            dimClose(g.L,g.W,op.L,op.W,0.05) && Math.abs(g.th-mat.thickness)<0.05 && (!g.mat || g.mat===mat.name));
+          const hit = candidates.length === 1 ? candidates[0] : undefined;
           if (hit) {
             hit.labels = hit.labels ? `${hit.labels}, ${op.id}` : String(op.id);
             hit.mat = hit.mat || mat.name;
@@ -157,7 +183,7 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
   function fillTable() {
     clear(table);
     const headRow = el("tr");
-    for (const h of ["#", "Part", "Q", "L", "W", "Thk", "Label", "Material"]) {
+    for (const h of ["#", "Part", "Q", "L", "W", "Thk", "Label", "Material", "Banding"]) {
       headRow.append(el("th", { text: h }));
     }
     table.append(headRow);
@@ -169,13 +195,31 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
         el("td", { class: "num", text: String(r.qty) }),
         el("td", { class: "mono", text: dim(r.L) }),
         el("td", { class: "mono", text: dim(r.W) }),
-        el("td", { class: "mono", text: dim(r.th) }),
+        thickCell(r),
         el("td", { class: "mono", text: r.labels || "—" }),
         el("td", { text: r.mat || "—" }),
+        el("td", { text: r.band || "—" }),
       );
       table.append(tr);
     });
     sub.textContent = `${room?.name ?? ""} · cab #${prod?.cabNo ?? "?"} · ${unitLabel()}${runSel.value ? ` · Run ${runSel.value}` : ""}`;
+
+    if (state.job?.warnings.length) sub.textContent += " · IMPORT WARNINGS: review before use";
+    const all = rows();
+    const guessed = all.filter((r) => r.thSrc === "default").length;
+    clear(note);
+    if (guessed) {
+      note.append(
+        el("b", { text: "* " }),
+        document.createTextNode(
+          `${guessed} of ${all.length} thicknesses are defaults for the part type, not values from this job. Check them before cutting.`,
+        ),
+      );
+      note.hidden = false;
+    } else {
+      note.hidden = false;
+      note.textContent = "Companion reference — verify source dimensions and quantities before production.";
+    }
   }
 
   function applyExplode() {
@@ -233,10 +277,12 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
     imgEl.style.border = "1.5px solid #222";
     row.append(imgEl, table.cloneNode(true));
     wrap.append(h2, p, row);
+    if (!note.hidden) wrap.append(note.cloneNode(true));
     printHtml(
       "Assembly",
       `h2{margin:0} table{border-collapse:collapse;width:100%}
-       th{background:#1c1a17;color:#eee;padding:4px} td{border:1px solid #ccc;padding:3px 6px}`,
+       th{background:#1c1a17;color:#eee;padding:4px} td{border:1px solid #ccc;padding:3px 6px}
+       .sheet-note{font-size:10pt;margin-top:8px;color:#6b4b00}`,
       wrap,
       "17in 11in",
     );
@@ -246,6 +292,7 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
     alive = false;
     ac.abort();
     renderer.dispose();
+    renderer.forceContextLoss();
     for (const pp of engine.parts) {
       pp.mesh.visible = true;
       pp.mesh.position.copy(pp.home).addScaledVector(pp.dir, state.explode);

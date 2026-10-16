@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { parseGcode, toolDiaMm, type GFile } from "./parse/gcode";
-import { currentProduct, state } from "./store";
+import { state } from "./store";
 import { clear, el } from "./dom";
 
 const TOOL_COLOR = [0xc8ccd4, 0x6b8f71, 0xc45c3e, 0x7a9bb8, 0xc4a574];
@@ -12,7 +12,8 @@ export function openGcode(host: HTMLElement) {
   const title = el("div", { class: "sheet-title", text: "G-code sheet visualizer" });
   const note = el("div", { class: "sheet-note" });
   const close = el("button", { type: "button", class: "sheet-close", text: "Close" });
-  bar.append(title, note, close);
+  const select = el("select", {"aria-label": "G-code program"}) as HTMLSelectElement;
+  bar.append(title, select, note, close);
   const view = el("div", { class: "gcode-view" });
   host.append(bar, view);
 
@@ -52,6 +53,7 @@ export function openGcode(host: HTMLElement) {
     ac.abort();
     if (group) disposeGeo(group);
     renderer.dispose();
+    renderer.forceContextLoss();
     host.classList.remove("open");
     clear(host);
   }
@@ -67,9 +69,14 @@ export function openGcode(host: HTMLElement) {
     camera.lookAt(target);
   }
 
+  let lastW = 0,
+    lastH = 0;
   function resize() {
     const w = view.clientWidth || 1;
     const h = view.clientHeight || 1;
+    if (w === lastW && h === lastH) return;
+    lastW = w;
+    lastH = h;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
@@ -118,10 +125,10 @@ export function openGcode(host: HTMLElement) {
     target.set(W / 2, 0, -L / 2);
     dist = Math.max(W, L) * 1.6;
     files.forEach((f, fi) => {
-      const yFlip = f.flip ? -T : 0.4;
+      const yFlip = 0;
       f.episodes.forEach((ep) => {
         const col = TOOL_COLOR[(ep.tool ?? fi) % TOOL_COLOR.length];
-        const pts = ep.pts.map((p) => new THREE.Vector3(p[0], yFlip, -p[1]));
+        const pts = ep.pts.map((p) => new THREE.Vector3(p[0], p[2] + yFlip, -p[1]));
         if (pts.length < 2) return;
         const geo = new THREE.BufferGeometry().setFromPoints(pts);
         const dia = toolDiaMm(ep.tool != null ? f.tools[ep.tool] : undefined);
@@ -143,11 +150,15 @@ export function openGcode(host: HTMLElement) {
       files.push(parseGcode(await it.text(), it.name));
     }
     if (!alive) return;
-    const tools = files.flatMap((f) => Object.values(f.tools).map((c) => toolDiaMm(c)));
-    const diaNote = tools.length ? ` · bits ${[...new Set(tools.map((d) => d.toFixed(1)))].join("/")} mm` : "";
-    note.textContent = `${files.length} file${files.length > 1 ? "s" : ""} · ${currentProduct()?.name ?? ""} · millimetres (G20/G21)${diaNote}`;
-    draw(files);
-  })();
+    files.forEach((f,i) => select.append(el("option", {value:String(i),text:f.name})));
+    const show = () => {
+      const f = files[Number(select.value) || 0];
+      note.textContent = f.warnings.length ? f.warnings.join(" ") : "Single-program preview · actual Z · bed is illustrative · not machining approval";
+      draw(f.warnings.length ? [] : [f]);
+    };
+    select.onchange = show;
+    show();
+  })().catch(err => { if (alive) note.textContent = `Could not read program: ${String(err)}`; });
 
   const loop = () => {
     if (!alive) return;

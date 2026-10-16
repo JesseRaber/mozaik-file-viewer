@@ -66,7 +66,7 @@ export const state: AppState = {
   chips: { ...DEFAULT_CHIPS },
   overlay: "none",
   query: "",
-  title: loadJson("mfv_title", DEFAULT_TITLE),
+  title: { ...loadJson("mfv_title", DEFAULT_TITLE), job: "", customer: "" },
   colors: loadJson("mfv_colors", {}),
   grid: false,
   dims: false,
@@ -85,7 +85,7 @@ export function emit() {
 
 export function saveTitle() {
   try {
-    localStorage.setItem("mfv_title", JSON.stringify(state.title));
+    localStorage.setItem("mfv_title", JSON.stringify({ ...state.title, job: "", customer: "" }));
   } catch {
     /* ignore */
   }
@@ -107,8 +107,9 @@ export function setJob(job: Job | null) {
   state.explode = 0;
   state.chips = { ...DEFAULT_CHIPS };
   if (job) {
-    if (!state.title.job) state.title.job = job.jobName;
-    if (!state.title.customer) state.title.customer = job.customer;
+    // Job and customer belong to the job just loaded; edits in Preferences apply until the next load.
+    state.title.job = job.jobName;
+    state.title.customer = job.customer;
     saveTitle();
   }
   emit();

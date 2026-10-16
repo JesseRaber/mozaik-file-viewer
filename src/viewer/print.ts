@@ -25,15 +25,16 @@ export function printHtml(title: string, css: string, body: Node | string, page 
   } else {
     doc.body.appendChild(doc.importNode(body, true));
   }
-  setTimeout(() => {
-    try {
-      ifr.contentWindow?.focus();
-      ifr.contentWindow?.print();
-    } catch {
-      window.print();
-    }
+  void (async () => {
+    await Promise.all([...doc.images].map(img => img.decode().catch(() => undefined)));
+    await doc.fonts.ready;
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    const win = ifr.contentWindow;
+    if (!win) { ifr.remove(); return; }
+    win.addEventListener("afterprint", () => ifr.remove(), {once: true});
+    win.focus(); win.print();
     setTimeout(() => ifr.remove(), 60000);
-  }, 200);
+  })().catch(() => { ifr.remove(); window.alert("The print view could not be prepared. Please retry."); });
 }
 
 function esc(s: string) {

@@ -1,56 +1,59 @@
 import JSZip from "jszip";
 import { decodeBytes } from "../encoding";
-import { defaultThickness, dimClose, normName } from "../geom";
-import type { CncFile, FileItem, Job, LoadWarning, OptRun } from "../types";
+import { assyMatches, parseAssy, dimClose, normName } from "../geom";
+import type { CncFile, FileItem, Job, LoadWarning, OptRun, PaperlessData } from "../types";
 import { parseDes } from "./des";
 import { mergeRuns, parseOpt } from "./opt";
 import { parseJobParms } from "./parms";
+import { applyPaperless, parseLabelData } from "./paperless";
 
 const CNC_EXT = [".nc", ".tap", ".gcode", ".gc", ".cnc", ".mmg", ".bpp", ".anc", ".xxl", ".ngc"];
+
+/** Mozaik "export to apps" archives. All three are ZIPs. */
+const PAPERLESS_EXT = [".mzklbl", ".mzkcut", ".mzkasy"];
 
 function looksLikeGcode(head: string): boolean {
   return /Mozaik Output|G20|G21|G90/.test(head) && /G0\d? |G1 |X[\d.-]/.test(head);
 }
 
 function applyOptimizerThickness(job: Job) {
-  const mats: Array<{ name: string; thickness: number; parts: { name: string; L: number; W: number }[] }> =
-    [];
-  for (const run of Object.values(job.runs)) {
-    for (const mat of run.materials) {
-      if (mat.thickness > 0.2) mats.push(mat);
+  for (const room of job.rooms) for (const prod of room.products) for (const part of prod.parts) {
+    if (room.products.filter(p => p.cabNo === prod.cabNo).length > 1) {
+      job.warnings.push({file: room.file, message: `Duplicate cabinet identity ${prod.cabNo}; optimizer association withheld`}); continue;
     }
-  }
-  if (!mats.length) return;
-  for (const room of job.rooms) {
-    for (const prod of room.products) {
-      for (const part of prod.parts) {
-        if (part.thicknessSource === "xml") continue;
-        for (const mat of mats) {
-          const hit = mat.parts.some(
-            (op) =>
-              dimClose(part.L, part.W, op.L, op.W, 1.2) &&
-              (normName(part.name) === normName(op.name) ||
-                normName(part.name).includes(normName(op.name)) ||
-                normName(op.name).includes(normName(part.name))),
-          );
-          if (hit) {
-            part.thickness = mat.thickness;
-            part.thicknessSource = "optimizer";
-            part.material = part.material || mat.name;
-            break;
-          }
-        }
-        if (part.thicknessSource === "default") {
-          part.thickness = defaultThickness(part.type);
-        }
-      }
+    const matches = Object.values(job.runs).flatMap(run => run.materials.flatMap(mat =>
+      mat.parts.filter(op => mat.thickness > 0.2 && normName(part.name) !== "" &&
+        normName(part.name) === normName(op.name) && assyMatches(op.assy, room.file, prod.cabNo) &&
+        (parseAssy(op.assy)?.room != null || job.rooms.flatMap(r => r.products).filter(p => Number(p.cabNo) === Number(prod.cabNo)).length === 1) &&
+        dimClose(part.L, part.W, op.L, op.W, 0.05)).map(op => ({ mat, op }))));
+    const identities = new Set(matches.map(({mat}) => JSON.stringify([mat.name, mat.thickness])));
+    if (identities.size > 1) {
+      job.warnings.push({file: room.file, message: `Ambiguous optimizer material/thickness for ${part.name}; source selection required`});
+      continue;
     }
+    if (!matches.length) continue;
+    const mat = matches[0].mat;
+    if (part.thicknessSource === "xml") {
+      if (Math.abs(part.thickness - mat.thickness) > 0.05)
+        job.warnings.push({file: room.file, message: `Optimizer thickness conflicts with XML for ${part.name}; XML retained`});
+      continue;
+    }
+    part.thickness = mat.thickness; part.thicknessSource = "optimizer";
+    part.material = mat.name;
   }
 }
 
 export async function loadItems(items: FileItem[]): Promise<Job> {
   const warnings: LoadWarning[] = [];
-  let jobName = "";
+  const roomFiles = items.filter(it => /\.(des|sbk)$/i.test(it.path));
+  const parents = new Set(roomFiles.map(it => it.path.replace(/\\/g, "/").split("/").slice(0, -1).join("/")));
+  if (parents.size > 1) throw new Error("Multiple job folders detected. Open one job folder at a time.");
+  const root = [...parents][0] || "";
+  if (root && items.some(it => !it.path.replace(/\\/g, "/").startsWith(root + "/")))
+    throw new Error("Files outside the selected job folder detected. Open one job at a time.");
+  const names = roomFiles.filter(it => /\.des$/i.test(it.path)).map(it => it.name.toLowerCase());
+  if (new Set(names).size !== names.length) throw new Error("Duplicate room identity; open one job at a time.");
+  let jobName = root.split("/").filter(Boolean).at(-1) || "";
   let customer = "";
   const desItems: FileItem[] = [];
   const sbkItems: FileItem[] = [];
@@ -58,6 +61,7 @@ export async function loadItems(items: FileItem[]): Promise<Job> {
   const parmItems: FileItem[] = [];
   const cncItems: FileItem[] = [];
   const txtCandidates: FileItem[] = [];
+  const paperlessItems: FileItem[] = [];
 
   for (const it of items) {
     const nl = it.path.toLowerCase();
@@ -74,6 +78,8 @@ export async function loadItems(items: FileItem[]): Promise<Job> {
     else if (nl.endsWith(".sbk")) sbkItems.push(it);
     else if (nl.endsWith(".opt")) optItems.push(it);
     else if (nl.endsWith("-jobparms.dat")) parmItems.push(it);
+    else if (PAPERLESS_EXT.some((e) => nl.endsWith(e))) paperlessItems.push(it);
+    else if (nl.endsWith("status.xml") || nl.endsWith("labeldata.xml")) paperlessItems.push(it);
     else if (CNC_EXT.some((e) => nl.endsWith(e))) cncItems.push(it);
     else if (nl.endsWith(".txt")) txtCandidates.push(it);
   }
@@ -128,7 +134,7 @@ export async function loadItems(items: FileItem[]): Promise<Job> {
   }
   parms.sort((a, b) => a.lib.localeCompare(b.lib));
 
-  if (!rooms.length) {
+  if (!rooms.length && !cncItems.length) {
     const detail = warnings.length
       ? warnings.map((w) => `${w.file}: ${w.message}`).join("\n")
       : "No .des / .sbk rooms with cabinets were found.";
@@ -152,7 +158,56 @@ export async function loadItems(items: FileItem[]): Promise<Job> {
     source: "files",
   };
   applyOptimizerThickness(job);
+
+  const paperless = await loadPaperless(paperlessItems, warnings, job.jobName);
+  if (paperless) {
+    job.paperless = paperless;
+    job.paperlessMatched = applyPaperless(job, paperless);
+  }
   return job;
+}
+
+/**
+ * Find the richest Paperless Shop export among the loaded files.
+ *
+ * A job folder can hold several — one per target tablet, plus status files
+ * that are empty until work is recorded. Take whichever describes the most
+ * parts; they are exports of the same run.
+ */
+async function loadPaperless(
+  items: FileItem[],
+  warnings: LoadWarning[],
+  jobName: string,
+): Promise<PaperlessData | null> {
+  const candidates: PaperlessData[] = [];
+  for (const it of items) {
+    try {
+      const nl = it.name.toLowerCase();
+      let text: string | null = null;
+      if (PAPERLESS_EXT.some((e) => nl.endsWith(e))) {
+        const zip = await JSZip.loadAsync(await it.raw());
+        const entry = Object.keys(zip.files).find((n) => /labeldata\.xml$/i.test(n));
+        if (!entry) continue;
+        text = decodeBytes(await zip.files[entry].async("arraybuffer"));
+      } else {
+        text = decodeBytes(await it.raw());
+      }
+      const { data, warning } = parseLabelData(text, it.name);
+      if (warning) warnings.push(warning);
+      if (data) {
+        if (normName(data.jobName) !== normName(jobName) || !data.jobName.trim())
+          warnings.push({file: it.name, message: "Paperless job identity does not match; export ignored"});
+        else candidates.push(data);
+      }
+    } catch (err) {
+      warnings.push({ file: it.name, message: `Paperless Shop export failed: ${String(err)}` });
+    }
+  }
+  if (candidates.length > 1) {
+    warnings.push({file: "Paperless exports", message: "Multiple exports found; load only the intended job revision/run export. No overlay applied."});
+    return null;
+  }
+  return candidates[0] || null;
 }
 
 export async function filesToItems(fileList: File[]): Promise<FileItem[]> {
@@ -201,4 +256,29 @@ export async function walkHandle(
       await walkHandle(h as FileSystemDirectoryHandle, `${prefix}${name}/`, out);
     }
   }
+}
+
+/** Read entries before the browser closes its drag data store. */
+export async function droppedItems(transfer: DataTransfer): Promise<FileItem[]> {
+  const entries = [...transfer.items].filter(i => i.kind === "file").map(i => i.webkitGetAsEntry?.());
+  const files = [...transfer.files];
+  if (!entries.some(Boolean)) return filesToItems(files);
+  const items: FileItem[] = [];
+  async function visit(entry: FileSystemEntry, prefix: string): Promise<void> {
+    const path = prefix + entry.name;
+    if (entry.isFile) {
+      const file = await new Promise<File>((resolve,reject) => (entry as FileSystemFileEntry).file(resolve,reject));
+      const expanded = await filesToItems([file]);
+      for (const item of expanded) items.push({...item, path: /\.zip$/i.test(file.name) ? prefix + item.path : path});
+    } else if (entry.isDirectory) {
+      const reader = (entry as FileSystemDirectoryEntry).createReader();
+      while (true) {
+        const batch = await new Promise<FileSystemEntry[]>((resolve,reject) => reader.readEntries(resolve,reject));
+        if (!batch.length) break;
+        for (const child of batch) await visit(child,path + "/");
+      }
+    }
+  }
+  for (const entry of entries) if (entry) await visit(entry,"");
+  return items;
 }

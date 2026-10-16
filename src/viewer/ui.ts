@@ -7,7 +7,7 @@ import { colorGroupMeta, createEngine, partDims } from "./engine";
 import { openFaceFrame } from "./faceframe";
 import { openFiles, openJobFolder, openRecent, recentJobs, setJobsRoot } from "./fs";
 import { openGcode } from "./gcode-view";
-import { filesToItems, loadItems } from "./parse/load";
+import { droppedItems, loadItems } from "./parse/load";
 import { openParms } from "./parms-view";
 import {
   currentProduct,
@@ -329,8 +329,11 @@ export function mountViewer(root: HTMLElement): () => void {
   function paintHeader() {
     const prod = currentProduct();
     if (!prod) {
-      pname.textContent = "No cabinet loaded";
-      pdims.textContent = "Open a job folder to begin";
+      pname.textContent = state.job?.cncFiles.length ? "G-code program loaded" : "No cabinet loaded";
+      bFF.style.display = "none";
+      warn.hidden = !state.job?.warnings.length;
+      warn.textContent = state.job?.warnings.map(w => w.message).join(" · ") || "";
+      pdims.textContent = state.job?.cncFiles.length ? "Use G-code visualizer to inspect the selected program" : "Open a job folder to begin";
       libTag.hidden = true;
       landing.classList.remove("gone");
       return;
@@ -339,7 +342,7 @@ export function mountViewer(root: HTMLElement): () => void {
     const fast = prod.fasteners.length
       ? " · " + prod.fasteners.map((f) => `${f.count}× ${f.name}`).join(", ")
       : "";
-    pdims.textContent = `${fmt(prod.width)} W × ${fmt(prod.height)} H × ${fmt(prod.depth)} D ${unitLabel()} · ${prod.parts.length} parts${fast}`;
+    pdims.textContent = `${fmt(prod.width)} W × ${fmt(prod.height)} H × ${fmt(prod.depth)} D ${unitLabel()} · ${prod.parts.reduce((n, p) => n + p.qty, 0)} parts${fast}`;
     if (prod.sourceLib) {
       libTag.hidden = false;
       libTag.textContent = `Parameters: ${prod.sourceLib}`;
@@ -363,6 +366,9 @@ export function mountViewer(root: HTMLElement): () => void {
   }
 
   const unsub = subscribe(() => {
+    closeOverlay();
+    ruler.value = String(state.explode * 100);
+    pct.textContent = `${Math.round(state.explode * 100)}%`;
     uIn.classList.toggle("on", unit === "in");
     uMm.classList.toggle("on", unit === "mm");
     rebuild();
@@ -385,7 +391,14 @@ export function mountViewer(root: HTMLElement): () => void {
     state.selected = null;
     emit();
   };
-  search.oninput = () => fillSelects();
+  search.oninput = () => {
+    const q = search.value.trim().toLowerCase();
+    const job = state.job;
+    const room = job?.rooms[state.roomIndex];
+    const match = room?.products.findIndex(p => `${p.name} ${p.cabNo} ${room.name}`.toLowerCase().includes(q)) ?? -1;
+    if (match >= 0) { state.cabIndex = match; state.selected = null; emit(); }
+    else { fillSelects(); flash("No matching cabinet in this room; current cabinet remains displayed."); }
+  };
   uIn.onclick = () => {
     setUnit("in");
     emit();
@@ -432,11 +445,11 @@ export function mountViewer(root: HTMLElement): () => void {
     });
   });
 
-  bFF.onclick = () => openFaceFrame(overlay);
-  bAsm.onclick = () => openAssembly(overlay, engine);
-  bPrm.onclick = () => openParms(overlay);
-  bGcv.onclick = () => openGcode(overlay);
-  libTag.onclick = () => openParms(overlay);
+  bFF.onclick = () => { closeOverlay(); openFaceFrame(overlay); };
+  bAsm.onclick = () => { closeOverlay(); openAssembly(overlay, engine); };
+  bPrm.onclick = () => { closeOverlay(); openParms(overlay); };
+  bGcv.onclick = () => { closeOverlay(); openGcode(overlay); };
+  libTag.onclick = () => { closeOverlay(); openParms(overlay); };
   menuBtn.onclick = () => (side.classList.contains("open") ? closeNav() : openNav());
   scrim.onclick = closeNav;
 
@@ -575,11 +588,12 @@ export function mountViewer(root: HTMLElement): () => void {
     e.preventDefault();
     depth = 0;
     root.classList.remove("dragging");
-    const files = [...((e as DragEvent).dataTransfer?.files || [])];
-    if (!files.length) return;
+    const transfer = (e as DragEvent).dataTransfer;
+    if (!transfer) return;
+    const items = droppedItems(transfer);
     void (async () => {
       try {
-        setJob(await loadItems(await filesToItems(files)));
+        setJob(await loadItems(await items));
       } catch (err) {
         flash(String((err as Error).message || err));
       }

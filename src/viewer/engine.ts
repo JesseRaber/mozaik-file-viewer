@@ -142,8 +142,11 @@ function disposeObject(root: THREE.Object3D) {
     const mesh = o as THREE.Mesh;
     if (mesh.geometry) mesh.geometry.dispose();
     const mat = mesh.material;
-    if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
-    else if (mat) (mat as THREE.Material).dispose();
+    const mats = Array.isArray(mat) ? mat : mat ? [mat as THREE.Material] : [];
+    for (const m of mats) {
+      (m as THREE.SpriteMaterial).map?.dispose();
+      m.dispose();
+    }
   });
 }
 
