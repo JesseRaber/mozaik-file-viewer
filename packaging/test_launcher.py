@@ -38,7 +38,10 @@ class LauncherTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "checksum mismatch"): launcher.verify()
         self.manifest(); (self.site / "extra.txt").write_text("Extra", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "unexpected"): launcher.verify()
-        (self.site / "extra.txt").unlink(); (self.site / "index.html").unlink()
+        (self.site / "extra.txt").unlink()
+        (self.site / "SHA256SUMS.txt").write_text("Unexpected nested manifest", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "unexpected"): launcher.verify()
+        (self.site / "SHA256SUMS.txt").unlink(); (self.site / "index.html").unlink()
         with self.assertRaisesRegex(ValueError, "Invalid"): launcher.verify()
 
     def test_manifest_rejects_traversal_and_duplicates(self):

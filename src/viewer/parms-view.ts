@@ -62,7 +62,8 @@ export function openParms(host: HTMLElement) {
     });
     const head = el("tr");
     for (const h of ["Code", "Description", "Value"]) head.append(el("th", { text: h }));
-    table.append(head);
+    table.append(el("thead", {}, head));
+    const rows = el("tbody"); table.append(rows);
     for (const p of L.params) {
       const inCat = base.value === "" || p.cat === cat + Number(base.value);
       if (!inCat) continue;
@@ -73,21 +74,27 @@ export function openParms(host: HTMLElement) {
         el("td", { text: p.desc || "—" }),
         el("td", { class: "val", text: parmValueText(p, unit) }),
       );
-      table.append(tr);
+      rows.append(tr);
     }
   }
   sel.onchange = () => { cat = 0; base.value = libs[+sel.value]?.categoryBase?.toString() ?? ""; render(); };
   base.onchange = () => { cat = 0; render(); };
   search.oninput = render;
-  printBtn.onclick = () =>
-    printHtml(
-      "Parameters",
-      `
-    table{border-collapse:collapse;width:100%}
-    th{background:#1c1a17;color:#eee;padding:6px;text-align:left}
-    td{border:1px solid #ccc;padding:4px 8px}
-  `,
-      table,
-    );
+  printBtn.onclick = () => {
+    const L = libs[+sel.value];
+    const wrap = el("div");
+    wrap.append(el("h2", { text: "Construction parameters — reference snapshot" }),
+      el("p", { text: `Job: ${state.job?.jobName || "—"} · Library: ${L?.lib || "—"} · Template: ${L?.tmpl || "—"} · Units: ${unit}` }),
+      el("p", { text: `Shown category: ${base.value === "" ? "All (numbering unverified)" : L?.cats[cat] || "—"} · Search: ${search.value.trim() || "None"}` }),
+      el("p", { text: "Read-only source reference, not a verified cutlist or machining approval. Reload the intended source revision; files are not monitored for changes." }),
+      table.cloneNode(true));
+    printHtml("Parameters", `
+      h2{font:700 16px/1.3 "Segoe UI",sans-serif;margin:0 0 6px}
+      table{border-collapse:collapse;width:100%}
+      thead{display:table-header-group} tr{break-inside:avoid}
+      th{background:#182230;color:#fff;padding:6px;text-align:left}
+      td{border:1px solid #ccc;padding:4px 8px}
+    `, wrap);
+  };
   render();
 }

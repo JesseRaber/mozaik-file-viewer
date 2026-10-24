@@ -23,7 +23,7 @@ def verify():
         seen.add(name)
         if hashlib.sha256(target.read_bytes()).hexdigest() != digest:
             raise ValueError("Package checksum mismatch: " + name)
-    actual = {f.relative_to(ROOT).as_posix() for f in ROOT.rglob("*") if f.is_file() and f.name != "SHA256SUMS.txt"}
+    actual = {f.relative_to(ROOT).as_posix() for f in ROOT.rglob("*") if f.is_file() and f != ROOT / "SHA256SUMS.txt"}
     if actual != seen:
         raise ValueError("Package contains missing or unexpected files")
 
