@@ -131,6 +131,9 @@ export function applyPaperless(job: Job, data: PaperlessData): number {
       if (room.products.filter(p => p.cabNo === prod.cabNo).length > 1) {
         job.warnings.push({file: data.file, message: `Duplicate cabinet identity ${prod.cabNo}; overlay withheld`}); continue;
       }
+      if (prod.quantity !== 1) {
+        job.warnings.push({file: data.file, message: `Cabinet #${prod.cabNo} build quantity ${prod.quantity}; label overlay withheld (one source part maps to several labels)`}); continue;
+      }
       const candidates = data.parts.filter((pp) =>
         assyMatches(pp.assy, room.file, prod.cabNo) &&
         (parseAssy(pp.assy)?.room != null || job.rooms.flatMap(r => r.products).filter(p => Number(p.cabNo) === Number(prod.cabNo)).length === 1),

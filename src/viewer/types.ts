@@ -69,8 +69,11 @@ export type Wall = {
 };
 
 export type Product = {
+  sourceUID?: string;
   name: string;
   cabNo: string;
+  /** Cabinet build quantity (Mozaik Product `Count`); 1 when absent. Part quantities are per cabinet. */
+  quantity: number;
   width: number;
   height: number;
   depth: number;
@@ -84,6 +87,7 @@ export type Product = {
 };
 
 export type Room = {
+  sourceUID?: string;
   name: string;
   file: string;
   walls: Wall[];

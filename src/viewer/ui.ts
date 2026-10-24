@@ -228,7 +228,7 @@ export function mountViewer(root: HTMLElement): () => void {
     const room = job.rooms[state.roomIndex];
     room?.products.forEach((p, i) => {
       if (q && !`${p.name} ${p.cabNo} ${room.name}`.toLowerCase().includes(q)) return;
-      selCab.append(el("option", { value: String(i), text: `#${p.cabNo || i + 1} ${p.name}` }));
+      selCab.append(el("option", { value: String(i), text: `#${p.cabNo || i + 1} ${p.name}${p.quantity === 1 ? "" : ` ×${p.quantity}`}` }));
     });
     selCab.value = String(state.cabIndex);
   }
@@ -342,7 +342,9 @@ export function mountViewer(root: HTMLElement): () => void {
     const fast = prod.fasteners.length
       ? " · " + prod.fasteners.map((f) => `${f.count}× ${f.name}`).join(", ")
       : "";
-    pdims.textContent = `${fmt(prod.width)} W × ${fmt(prod.height)} H × ${fmt(prod.depth)} D ${unitLabel()} · ${prod.parts.reduce((n, p) => n + p.qty, 0)} parts${fast}`;
+    const perCab = prod.parts.reduce((n, p) => n + p.qty, 0);
+    const build = prod.quantity === 1 ? `${perCab} parts` : `${perCab} parts per cabinet · BUILD ${prod.quantity} CABINETS (${perCab * prod.quantity} parts)`;
+    pdims.textContent = `${fmt(prod.width)} W × ${fmt(prod.height)} H × ${fmt(prod.depth)} D ${unitLabel()} · ${build}${fast}`;
     if (prod.sourceLib) {
       libTag.hidden = false;
       libTag.textContent = `Parameters: ${prod.sourceLib}`;

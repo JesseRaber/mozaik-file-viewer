@@ -1,5 +1,5 @@
-import JSZip from "jszip";
-import { decodeBytes } from "../encoding";
+import { IMPORT_LIMITS, openArchive, readArchiveEntry, safeImportPath } from "../archive";
+import { decodeBytes, xmlPayload } from "../encoding";
 import { assyMatches, parseAssy, dimClose, normName } from "../geom";
 import type { CncFile, FileItem, Job, LoadWarning, OptRun, PaperlessData } from "../types";
 import { parseDes } from "./des";
@@ -44,6 +44,18 @@ function applyOptimizerThickness(job: Job) {
 }
 
 export async function loadItems(items: FileItem[]): Promise<Job> {
+  if (items.length > IMPORT_LIMITS.files) throw new Error("Import exceeds file-count limit");
+  let totalBytes = 0;
+  items = items.map(item => {
+    safeImportPath(item.path);
+    let cached: Promise<ArrayBuffer> | undefined;
+    const raw = () => cached ||= item.raw().then(buf => {
+      totalBytes += buf.byteLength;
+      if (buf.byteLength > IMPORT_LIMITS.fileBytes || totalBytes > IMPORT_LIMITS.totalBytes) throw new Error("Import exceeds size limit");
+      return buf;
+    });
+    return {...item, raw, text: async () => decodeBytes(await raw())};
+  });
   const warnings: LoadWarning[] = [];
   const roomFiles = items.filter(it => /\.(des|sbk)$/i.test(it.path));
   const parents = new Set(roomFiles.map(it => it.path.replace(/\\/g, "/").split("/").slice(0, -1).join("/")));
@@ -69,8 +81,12 @@ export async function loadItems(items: FileItem[]): Promise<Job> {
     if (nl.endsWith("jobdat.dat")) {
       try {
         const t = await it.text();
-        const m = t.match(/<CustomerName>([^<]*)<\/CustomerName>/);
-        if (m) customer = m[1];
+        const payload = xmlPayload(t);
+        if (payload) {
+          const doc = new DOMParser().parseFromString(payload, "text/xml");
+          if (doc.querySelector("parsererror")) throw new Error("Invalid JobDat XML");
+          customer = doc.querySelector("CustomerName")?.textContent || "";
+        }
       } catch (err) {
         warnings.push({ file: it.name, message: `Could not read JobDat: ${String(err)}` });
       }
@@ -164,6 +180,9 @@ export async function loadItems(items: FileItem[]): Promise<Job> {
     job.paperless = paperless;
     job.paperlessMatched = applyPaperless(job, paperless);
   }
+  job.warnings.push({file: "Source snapshot", message: "Read-only design reference; not a verified cutlist. Files are not monitored for changes. Reload the intended revision; cut sizes, report names and exported-only parts can differ."});
+  const guessed = rooms.flatMap(r => r.products.flatMap(p => p.parts)).filter(p => p.thicknessSource === "default").length;
+  if (guessed) job.warnings.push({file: "Thickness", message: `${guessed} part records use estimated thickness; verify source values before use.`});
   return job;
 }
 
@@ -185,10 +204,10 @@ async function loadPaperless(
       const nl = it.name.toLowerCase();
       let text: string | null = null;
       if (PAPERLESS_EXT.some((e) => nl.endsWith(e))) {
-        const zip = await JSZip.loadAsync(await it.raw());
+        const zip = await openArchive(await it.raw());
         const entry = Object.keys(zip.files).find((n) => /labeldata\.xml$/i.test(n));
         if (!entry) continue;
-        text = decodeBytes(await zip.files[entry].async("arraybuffer"));
+        text = decodeBytes(await readArchiveEntry(zip.files[entry]));
       } else {
         text = decodeBytes(await it.raw());
       }
@@ -212,18 +231,21 @@ async function loadPaperless(
 
 export async function filesToItems(fileList: File[]): Promise<FileItem[]> {
   const items: FileItem[] = [];
+  if (fileList.length > IMPORT_LIMITS.files) throw new Error("Import exceeds file-count limit");
   for (const f of fileList) {
+    safeImportPath(f.webkitRelativePath || f.name);
+    if (f.size > (/\.zip$/i.test(f.name) ? IMPORT_LIMITS.archiveBytes : IMPORT_LIMITS.fileBytes)) throw new Error("Selected file exceeds size limit");
     const lower = f.name.toLowerCase();
     if (lower.endsWith(".zip")) {
-      const zip = await JSZip.loadAsync(f);
+      const zip = await openArchive(await f.arrayBuffer());
       for (const name of Object.keys(zip.files)) {
         const zf = zip.files[name];
         if (zf.dir) continue;
         items.push({
           path: name,
           name: name.split("/").pop() || name,
-          text: async () => decodeBytes(await zf.async("arraybuffer")),
-          raw: () => zf.async("arraybuffer"),
+          text: async () => decodeBytes(await readArchiveEntry(zf)),
+          raw: () => readArchiveEntry(zf),
         });
       }
     } else {
@@ -243,7 +265,9 @@ export async function walkHandle(
   prefix: string,
   out: FileItem[],
 ) {
+  if (prefix.split("/").length > 32) throw new Error("Folder nesting exceeds limit");
   for await (const [name, h] of dir.entries()) {
+    if (out.length >= IMPORT_LIMITS.files) throw new Error("Folder exceeds file-count limit");
     if (h.kind === "file") {
       const file = h as FileSystemFileHandle;
       out.push({
@@ -265,6 +289,7 @@ export async function droppedItems(transfer: DataTransfer): Promise<FileItem[]> 
   if (!entries.some(Boolean)) return filesToItems(files);
   const items: FileItem[] = [];
   async function visit(entry: FileSystemEntry, prefix: string): Promise<void> {
+    if (items.length >= IMPORT_LIMITS.files || prefix.split("/").length > 32) throw new Error("Dropped folder exceeds import limits");
     const path = prefix + entry.name;
     if (entry.isFile) {
       const file = await new Promise<File>((resolve,reject) => (entry as FileSystemFileEntry).file(resolve,reject));

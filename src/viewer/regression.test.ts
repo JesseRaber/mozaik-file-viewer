@@ -63,8 +63,8 @@ test("radius arcs end at requested point",()=>{
 test("rapids split episodes and vertical plunges retain Z",()=>{
  const g=parseGcode("G21 G90\nG0 X0 Y0 Z2\nG1 Z-1\nG0 X20 Y20 Z2\nG1 Z-1","drill");assert.equal(g.episodes.length,2);assert.deepEqual(g.episodes[1].pts,[[20,20,2],[20,20,-1]]);
 });
-test("positive inch cuts retain millimetre thickness",()=>{
- const g=parseGcode("G20 G90\nG0 X0 Y0 Z1.5\nG1 Z0.76\nG1 X2\nG0 Z1.5","inch");assert.equal(g.episodes.length,1);assert.ok(Math.abs(g.thickness!-19.304)<0.001);
+test("positive inch cuts retain millimetre Z without inventing thickness",()=>{
+ const g=parseGcode("G20 G90\nG0 X0 Y0 Z1.5\nG1 Z0.76\nG1 X2\nG0 Z1.5","inch");assert.equal(g.episodes.length,1);assert.ok(Math.abs(g.episodes[0].pts.at(-1)![2]-19.304)<0.001);assert.equal(g.thickness,null);
 });
 test("unsupported coordinate/canned-cycle commands withhold preview",()=>{
  for(const code of ["G92 X5","G81 X5 Y5 Z-2","G18 G2 X2 Z-1 I1 K0","G43 H1"]){const g=parseGcode(`G21 G90\nG1 X1 Y1 Z-1\n${code}`,"unsupported");assert.equal(g.episodes.length,0);assert.ok(g.warnings.length);}
@@ -86,4 +86,43 @@ test("duplicate cabinet IDs withhold optimizer associations",async()=>{
 test("high-Z feed moves are not silently discarded",()=>{
  const g=parseGcode("G21 G90\nG0 X0 Y0 Z80\nG1 X20 Z50", "thick-stock");
  assert.deepEqual(g.episodes.at(-1)?.pts.at(-1),[20,0,50]);
+});
+test("feed elevations never establish material thickness or a Z datum",()=>{
+ for(const code of ["G21 G90\nG0 X0 Y0 Z30\nG1 X20 Z19.05", "G20 G90\nG0 X0 Y0 Z1\nG1 X2 Z0.63"]){
+  const g=parseGcode(code,"unknown-stock");
+  assert.equal(g.warnings.length,0);
+  assert.ok(g.episodes.length);
+  assert.equal(g.thickness,null);
+ }
+});
+import {openArchive,readArchiveEntry,IMPORT_LIMITS} from './archive.ts';
+import JSZip from 'jszip';
+import {xmlPayload} from './encoding.ts';
+test('bounded archive rejects traversal, count and expansion before import',async()=>{
+ const traversal=new JSZip();traversal.file('../Room1.des',room);await assert.rejects(openArchive(await traversal.generateAsync({type:'arraybuffer'})),/Unsafe/);
+ const huge=new JSZip();huge.file('large.txt','x'.repeat(IMPORT_LIMITS.fileBytes+1));await assert.rejects(openArchive(await huge.generateAsync({type:'arraybuffer',compression:'DEFLATE'})),/expansion/);
+ const many=new JSZip();for(let i=0;i<=IMPORT_LIMITS.files;i++)many.file(`f${i}`, '');await assert.rejects(openArchive(await many.generateAsync({type:'arraybuffer'})),/file-count/);
+ const safe=new JSZip();safe.file('Job/Room1.des',room);const z=await openArchive(await safe.generateAsync({type:'arraybuffer'}));assert.equal(new TextDecoder().decode(await readArchiveEntry(z.files['Job/Room1.des'])),room);
+});
+test('DTD rejected before entity expansion and customer entities decoded as text',async()=>{
+ assert.throws(()=>xmlPayload('<!DOCTYPE Room [<!ENTITY x "payload">]>'+room),/DTD/);
+ const job=await loadItems([file('Job/Room1.des',room),file('Job/JobDat.dat','<Job><CustomerName>A &amp; B &lt;img src=x&gt;</CustomerName></Job>')]);assert.equal(job.customer,'A & B <img src=x>');assert.ok(job.warnings.some(w=>/not a verified cutlist/.test(w.message)));
+});
+test('source room and product UniqueIDs retained independently of display numbers',()=>{
+ const r=parseDes(room.replace('<Room Name=','<Room UniqueID="900" Name=').replace('<Product ProdName=','<Product UniqueID="901" ProdName='),'Room1.des').room!;assert.equal(r.sourceUID,'900');assert.equal(r.products[0].sourceUID,'901');
+});
+test("cabinet build quantity (Product Count) is retained; part quantities stay per cabinet",()=>{
+ const two=parseDes(room.replace('CabNo="1"','CabNo="1" Count="2"'),"Room1.des").room!.products[0];
+ assert.equal(two.quantity,2);assert.equal(two.parts[0].qty,3);
+ assert.equal(parseDes(room,"Room1.des").room!.products[0].quantity,1);
+});
+test("invalid cabinet quantity rejects the room; zero is kept with a warning",()=>{
+ for(const c of ["-1","1.5","x",""]) assert.equal(parseDes(room.replace('CabNo="1"',`CabNo="1" Count="${c}"`),"Room1.des").room,null);
+ const z=parseDes(room.replace('CabNo="1"','CabNo="1" Count="0"'),"Room1.des");
+ assert.equal(z.room!.products[0].quantity,0);assert.match(z.warning!.message,/quantity 0/);
+});
+test("labels are not overlaid on a cabinet built more than once",async()=>{
+ const j=await loadItems([file("JobA/Room1.des",room.replace('CabNo="1"','CabNo="1" Count="2"').replace('Quan="3"','Quan="1"')),file("JobA/LabelStatus.xml",label("JobA","Run 1",19.05))]);
+ assert.equal(part(j).labelNo,undefined);assert.equal(j.paperlessMatched,0);
+ assert.ok(j.warnings.some(w=>/build quantity 2; label overlay withheld/.test(w.message)));
 });

@@ -1,4 +1,4 @@
-export function printHtml(title: string, css: string, body: Node | string, page = "11in 8.5in") {
+export function printHtml(title: string, css: string, body: Node | string) {
   const ifr = document.createElement("iframe");
   ifr.setAttribute("aria-hidden", "true");
   ifr.style.cssText =
@@ -13,7 +13,7 @@ export function printHtml(title: string, css: string, body: Node | string, page 
   doc.close();
   const style = doc.createElement("style");
   style.textContent = `
-    @page{size:${page};margin:0.3in}
+    @page{size:letter landscape;margin:0.3in;page-orientation:upright}
     body{margin:0;background:#fff;color:#1a1714;font:12px/1.4 "IBM Plex Sans","Segoe UI",system-ui,sans-serif}
     ${css}
   `;

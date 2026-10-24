@@ -91,10 +91,17 @@ export function parseDes(text: string, fname: string): { room: Room | null; warn
 
   const invalid: string[] = [];
   const products: Product[] = [];
+  const zeroCount: string[] = [];
   roomEl.querySelectorAll("Products > Product").forEach((pEl) => {
+    const rawCount = pEl.getAttribute("Count");
+    const quantity = rawCount == null ? 1 : Number(rawCount);
+    if (!Number.isInteger(quantity) || quantity < 0 || rawCount === "") { invalid.push("Invalid cabinet quantity"); return; }
+    if (quantity === 0) zeroCount.push(pEl.getAttribute("CabNo") || pEl.getAttribute("ProdName") || "?");
     const prod: Product = {
+      sourceUID: pEl.getAttribute("UniqueID") || undefined,
       name: pEl.getAttribute("ProdName") || "Product",
       cabNo: pEl.getAttribute("CabNo") || "",
+      quantity,
       width: num(pEl, "Width"),
       height: num(pEl, "Height"),
       depth: num(pEl, "Depth"),
@@ -177,12 +184,16 @@ export function parseDes(text: string, fname: string): { room: Room | null; warn
     return { room: null, warning: { file: fname, message: "Room has no products" } };
   }
 
+  const warning = zeroCount.length
+    ? { file: fname, message: `Cabinet quantity 0 for #${zeroCount.join(", #")}; shown for reference, verify whether it is built` }
+    : undefined;
   const room: Room = {
+    sourceUID: roomEl.getAttribute("UniqueID") || undefined,
     name: roomEl.getAttribute("Name") || fname,
     file: fname,
     walls,
     products,
     doorStyle: parseDoorStyle(roomEl),
   };
-  return { room };
+  return { room, warning };
 }

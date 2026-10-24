@@ -31,7 +31,7 @@ export function parseGcode(text: string, name: string): GFile {
   const f: GFile = {name, flip: /flip/i.test(name), unit: "mm", sheetW: null,
     sheetL: null, thickness: null, tools: {}, episodes: [], warnings: []};
   let x = 0, y = 0, z = 50, mode = 0, absolute = true, unitsKnown = false;
-  let tool: number | null = null, pending = "", cur: GEpisode | null = null, maxFeedZ = 0;
+  let tool: number | null = null, pending = "", cur: GEpisode | null = null;
   const close = () => { if (cur) f.episodes.push(cur); cur = null; };
   const fail = (line: number, reason: string) => { f.warnings.push(`Line ${line + 1}: ${reason}. Preview withheld.`); };
   const sweep = (a: number, b: number, ccw: boolean) => {
@@ -107,13 +107,12 @@ export function parseGcode(text: string, name: string): GFile {
     { // Preview every feed move; clearance height is a machine/post convention.
       if (!cur) cur={tool,pts:[[x,y,z]],zmin:Math.min(z,nz)};
       cur.pts.push(...pts);cur.zmin=Math.min(cur.zmin,nz);
-      if (nz>0 && nz<35.56) maxFeedZ=Math.max(maxFeedZ,nz);
     }
     x=nx;y=ny;z=nz;
   }
   close();
   if (f.warnings.length) f.episodes=[];
-  f.thickness=maxFeedZ>1 ? maxFeedZ : null;
+  // Feed heights do not establish stock thickness or the machine's Z datum.
   return f;
 }
 

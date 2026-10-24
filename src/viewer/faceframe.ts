@@ -10,7 +10,7 @@ export function openFaceFrame(host: HTMLElement) {
   clear(host);
   host.classList.add("open");
   const bar = el("div", { class: "sheet-bar" });
-  const title = el("div", { class: "sheet-title", text: "Face frame — assembly / cut sheet" });
+  const title = el("div", { class: "sheet-title", text: "Face frame — assembly reference" });
   const flip = el("button", { type: "button", text: "Invert drawing" });
   const close = el("button", { type: "button", class: "sheet-close", text: "Close" });
   const printBtn = el("button", { type: "button", text: "Print" });
@@ -30,7 +30,7 @@ export function openFaceFrame(host: HTMLElement) {
 
   function draw() {
     clear(page);
-    const h2 = el("h2", { text: "Face Frame — Assembly / Cut Sheet" });
+    const h2 = el("h2", { text: "Face Frame — Assembly Reference" });
     const meta = el(
       "div",
       { class: "sheet-meta" },
@@ -106,6 +106,7 @@ export function openFaceFrame(host: HTMLElement) {
         "font-family": "IBM Plex Mono, ui-monospace, Consolas, monospace",
       });
       t.textContent = label;
+      if (x1 === x2) t.setAttribute("transform", `rotate(-90 ${(x1 + x2) / 2} ${(y1 + y2) / 2 - 4})`);
       root.appendChild(t);
     };
     dimLine(mx(bb.x0), invert ? dh - 14 : dh - 14, mx(bb.x1), dh - 14, dim(fw));
@@ -114,7 +115,9 @@ export function openFaceFrame(host: HTMLElement) {
 
     const table = el("table", { class: "sheet-table" });
     const head = el("tr");
-    for (const h of ["#", "Part", "Q", "Len", "Wid", "Thk", "Pk"]) head.append(el("th", { text: h }));
+    const build = currentProduct()?.quantity ?? 1;
+    const cols = build === 1 ? ["#", "Part", "Q", "Len", "Wid", "Thk", "Pk"] : ["#", "Part", "Q/cab", `Total ×${build}`, "Len", "Wid", "Thk", "Pk"];
+    for (const h of cols) head.append(el("th", { text: h }));
     table.append(head);
     layout!.members.forEach((m, i) => {
       const tr = el("tr");
@@ -122,6 +125,7 @@ export function openFaceFrame(host: HTMLElement) {
         el("td", { class: "num", text: String(i + 1) }),
         el("td", { text: m.name }),
         el("td", { class: "num", text: String(m.part.qty) }),
+        ...(build === 1 ? [] : [el("td", { class: "num", text: String(m.part.qty * build) })]),
         el("td", { class: "mono", text: dim(m.len) }),
         el("td", { class: "mono", text: dim(m.w) }),
         el("td", { class: "mono", text: dim(m.thick) }),
@@ -139,7 +143,7 @@ export function openFaceFrame(host: HTMLElement) {
   draw();
 
   printBtn.onclick = () => {
-    printHtml("Face frame", sheetCss(), page, "17in 11in");
+    printHtml("Face frame", sheetCss(), page);
   };
 }
 
@@ -151,7 +155,7 @@ function titleBlock() {
     cell("Company", t.company || "Your shop"),
     cell("Job", t.job || state.job?.jobName || "—"),
     cell("Room", currentRoom()?.name || "—"),
-    cell("Cabinet", `#${currentProduct()?.cabNo ?? "?"} ${currentProduct()?.name ?? ""}`),
+    cell("Cabinet", `#${currentProduct()?.cabNo ?? "?"} ${currentProduct()?.name ?? ""}${(currentProduct()?.quantity ?? 1) === 1 ? "" : ` — build ×${currentProduct()!.quantity}`}`),
   );
   const r2 = el("tr");
   r2.append(
