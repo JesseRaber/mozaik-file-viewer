@@ -126,3 +126,13 @@ test("labels are not overlaid on a cabinet built more than once",async()=>{
  assert.equal(part(j).labelNo,undefined);assert.equal(j.paperlessMatched,0);
  assert.ok(j.warnings.some(w=>/build quantity 2; label overlay withheld/.test(w.message)));
 });
+
+
+test("recent folder permission denial is explicit and preserves the current job", async () => {
+  const { openRecent } = await import("./fs");
+  const { state } = await import("./store");
+  const prior = state.job;
+  const handle = { queryPermission: async () => "denied", requestPermission: async () => "denied" } as unknown as FileSystemDirectoryHandle;
+  await assert.rejects(openRecent({ name: "Unavailable", handle, ts: 0 }), /permission was denied/);
+  assert.equal(state.job, prior);
+});

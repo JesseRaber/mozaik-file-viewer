@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { appVersion, sourceRevision } from "../version";
 import { openAssembly } from "./assembly";
 import { buildDemoJob } from "./demo";
 import { clear, el, svg } from "./dom";
@@ -70,11 +71,14 @@ export function mountViewer(root: HTMLElement): () => void {
   brand.append(iconFrame(), el("span", { class: "kicker", text: "Mozaik File Viewer" }), el("span", { class: "beta", text: "Local" }));
   const pname = el("h1", { text: "No cabinet loaded" });
   const pdims = el("p", { class: "sub", text: "Open a job folder to begin" });
+  const sourceLabel = el("p", { class: "source-identity", text: "No source snapshot loaded" });
   const openRow = el("div", { class: "open-row" });
   const bDir = el("button", { type: "button", class: "primary", text: "Open job folder" });
   const bFiles = el("button", { type: "button", text: "Files / zip" });
   openRow.append(bDir, bFiles);
-  const warn = el("div", { class: "warn" });
+  const identity = el("p", { class: "build-identity", text: `v${appVersion} · ${sourceRevision.slice(0, 12)}${sourceRevision.endsWith("-dirty") ? " (uncommitted)" : ""}`, title: `Source ${sourceRevision} · ${location.href}`, "aria-label": "Build identity" });
+  const importStatus = el("p", { class: "import-status", role: "status", "aria-live": "polite", text: "Local, read-only reference viewer" });
+  const warn = el("div", { class: "warn", role: "note", "aria-label": "Source limitations" });
   warn.hidden = true;
   const roomRow = el("label", { class: "sel" }, el("span", { text: "Room" }));
   const selRoom = el("select") as HTMLSelectElement;
@@ -92,6 +96,7 @@ export function mountViewer(root: HTMLElement): () => void {
     class: "search",
     type: "search",
     placeholder: "Search cabinets…",
+    "aria-label": "Search cabinets",
   }) as HTMLInputElement;
   const libTag = el("button", { type: "button", class: "lib-tag" });
   libTag.hidden = true;
@@ -115,7 +120,7 @@ export function mountViewer(root: HTMLElement): () => void {
     ),
   );
   const scrim = el("div", { class: "scrim" });
-  side.append(brand, pname, pdims, openRow, warn, search, roomRow, cabRow, libTag, actions, groups, foot);
+  side.append(brand, identity, pname, pdims, sourceLabel, openRow, importStatus, warn, search, roomRow, cabRow, libTag, actions, groups, foot);
 
   const stage = el("div", { class: "mfv-stage" });
   const landing = el("div", { class: "landing" });
@@ -127,7 +132,7 @@ export function mountViewer(root: HTMLElement): () => void {
   const feats = el("div", { class: "feats" });
   feats.append(
     feat("3D cabinet", "Orbit a room, explode parts, isolate layers.", "M4 7l8-4 8 4v10l-8 4-8-4zM12 3v18"),
-    feat("Shop sheets", "Face-frame cut list and box assembly from the same job.", "M6 4h12v16H6zM9 8h6M9 12h6"),
+    feat("Reference sheets", "Source dimensions and quantities, not a verified cutlist.", "M6 4h12v16H6zM9 8h6M9 12h6"),
     feat("Nested G-code", "Toolpaths in millimetres. G20 and G21 detected.", "M4 16l4-8 4 5 3-3 5 6"),
   );
   card.append(feats);
@@ -164,10 +169,47 @@ export function mountViewer(root: HTMLElement): () => void {
   const tag = el("div", { class: "tag" });
   const drop = el("div", { class: "drop", text: "Drop a Mozaik job folder or .zip" });
   const overlay = el("div", { class: "overlay" });
-  const toast = el("div", { class: "toast" });
+  const toast = el("div", { class: "toast", role: "status", "aria-live": "polite" });
   stage.append(landing, chips, tools, bar, tag, drop);
   root.append(menuBtn, scrim, side, stage, overlay, toast);
 
+  // Dialog state follows the actual overlay, including sheets managed by other modules.
+  let returnFocus: HTMLElement | null = null;
+  let modalOpen = false;
+  const narrow = matchMedia("(max-width: 860px)");
+  function syncNav() { side.inert = modalOpen || (narrow.matches && !side.classList.contains("open")); }
+  narrow.addEventListener("change", syncNav);
+  offs.push(() => narrow.removeEventListener("change", syncNav));
+  const modalObserver = new MutationObserver(() => {
+    const open = overlay.classList.contains("open");
+    if (open === modalOpen) return;
+    modalOpen = open;
+    stage.inert = open;
+    menuBtn.inert = open;
+    syncNav();
+    if (open) {
+      returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-modal", "true");
+      overlay.setAttribute("aria-label", overlay.querySelector("h2,h3,.sheet-title")?.textContent || "Reference viewer dialog");
+      overlay.tabIndex = -1;
+      (overlay.querySelector<HTMLElement>(".sheet-close,button,input,select") || overlay).focus();
+    } else {
+      overlay.removeAttribute("aria-modal");
+      if (returnFocus?.isConnected) returnFocus.focus();
+    }
+  });
+  modalObserver.observe(overlay, { attributes: true, attributeFilter: ["class"] });
+  offs.push(() => modalObserver.disconnect());
+  overlay.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    const list = [...overlay.querySelectorAll<HTMLElement>("button:not(:disabled),input:not(:disabled),select:not(:disabled),[tabindex='0']")].filter(el => el.getClientRects().length);
+    if (!list.length) { e.preventDefault(); overlay.focus(); return; }
+    const index = list.indexOf(document.activeElement as HTMLElement);
+    if (e.shiftKey && index <= 0) { e.preventDefault(); list.at(-1)!.focus(); }
+    else if (!e.shiftKey && (index < 0 || index === list.length - 1)) { e.preventDefault(); list[0].focus(); }
+  });
+  syncNav();
   const engine: Engine = createEngine(stage);
   let raf = 0;
   let alive = true;
@@ -183,6 +225,7 @@ export function mountViewer(root: HTMLElement): () => void {
 
   function flash(msg: string) {
     toast.textContent = msg;
+    importStatus.textContent = msg;
     toast.classList.add("show");
     setTimeout(() => toast.classList.remove("show"), 5200);
   }
@@ -190,10 +233,12 @@ export function mountViewer(root: HTMLElement): () => void {
   function closeNav() {
     side.classList.remove("open");
     root.classList.remove("nav-open");
+    syncNav();
   }
   function openNav() {
     side.classList.add("open");
     root.classList.add("nav-open");
+    syncNav();
   }
 
   async function refreshRecent() {
@@ -206,7 +251,7 @@ export function mountViewer(root: HTMLElement): () => void {
     recentWrap.hidden = false;
     rec.forEach((r) => {
       const b = el("button", { type: "button", class: "rjob", text: r.name });
-      b.onclick = () => openRecent(r).catch((err) => flash(String(err?.message || err)));
+      b.onclick = () => { void importing(() => openRecent(r)); };
       recentList.append(b);
     });
   }
@@ -228,7 +273,7 @@ export function mountViewer(root: HTMLElement): () => void {
     const room = job.rooms[state.roomIndex];
     room?.products.forEach((p, i) => {
       if (q && !`${p.name} ${p.cabNo} ${room.name}`.toLowerCase().includes(q)) return;
-      selCab.append(el("option", { value: String(i), text: `#${p.cabNo || i + 1} ${p.name}${p.quantity === 1 ? "" : ` ×${p.quantity}`}` }));
+      selCab.append(el("option", { title: p.name, value: String(i), text: `#${p.cabNo || i + 1} ${p.name}${p.quantity === 1 ? "" : ` ×${p.quantity}`}` }));
     });
     selCab.value = String(state.cabIndex);
   }
@@ -328,6 +373,8 @@ export function mountViewer(root: HTMLElement): () => void {
 
   function paintHeader() {
     const prod = currentProduct();
+    sourceLabel.textContent = state.job ? `Job: ${state.job.jobName} · source snapshot` : "No source snapshot loaded";
+    pname.title = prod?.name || "";
     if (!prod) {
       pname.textContent = state.job?.cncFiles.length ? "G-code program loaded" : "No cabinet loaded";
       bFF.style.display = "none";
@@ -367,7 +414,9 @@ export function mountViewer(root: HTMLElement): () => void {
     engine.resize();
   }
 
+  let lastJob = state.job;
   const unsub = subscribe(() => {
+    if (lastJob !== state.job) { search.value = ""; lastJob = state.job; }
     closeOverlay();
     ruler.value = String(state.explode * 100);
     pct.textContent = `${Math.round(state.explode * 100)}%`;
@@ -376,8 +425,15 @@ export function mountViewer(root: HTMLElement): () => void {
     rebuild();
   });
 
-  bDir.onclick = () => openJobFolder().catch((e) => flash(String(e?.message || e)));
-  bFiles.onclick = () => openFiles().catch((e) => flash(String(e?.message || e)));
+  async function importing(action: () => Promise<unknown>) {
+    importStatus.textContent = "Opening local job…";
+    root.setAttribute("aria-busy", "true");
+    try { await action(); importStatus.textContent = "Ready · files stay on this computer"; }
+    catch (e) { flash(String((e as Error)?.message || e)); }
+    finally { root.removeAttribute("aria-busy"); }
+  }
+  bDir.onclick = () => { void importing(openJobFolder); };
+  bFiles.onclick = () => { void importing(openFiles); };
   bDemo.onclick = () => setJob(buildDemoJob());
   bRoot.onclick = () => {
     void setJobsRoot().then(refreshRecent);
@@ -512,6 +568,12 @@ export function mountViewer(root: HTMLElement): () => void {
 
   let drag: { x: number; y: number; pan: boolean; moved: number } | null = null;
   const canvas = engine.renderer.domElement;
+  canvas.addEventListener("webglcontextlost", (e) => {
+    e.preventDefault();
+    warn.hidden = false;
+    warn.textContent = "3D graphics were interrupted. Reload this viewer and reopen the same source revision. Your source files were not changed.";
+    flash("3D graphics interrupted — reload the viewer to recover.");
+  });
   canvas.addEventListener("pointerdown", (e) => {
     drag = { x: e.clientX, y: e.clientY, pan: e.shiftKey || e.button === 2, moved: 0 };
     canvas.setPointerCapture(e.pointerId);
@@ -593,13 +655,7 @@ export function mountViewer(root: HTMLElement): () => void {
     const transfer = (e as DragEvent).dataTransfer;
     if (!transfer) return;
     const items = droppedItems(transfer);
-    void (async () => {
-      try {
-        setJob(await loadItems(await items));
-      } catch (err) {
-        flash(String((err as Error).message || err));
-      }
-    })();
+    void importing(async () => setJob(await loadItems(await items)));
   });
   onWin("keydown", (e) => {
     if (e.key !== "Escape") return;

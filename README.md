@@ -77,3 +77,9 @@ Use Node 22.18+ or 24, `npm ci --ignore-scripts`, `npm test`, then `npm run buil
 Imports are bounded to 2,048 entries, 32 MiB per expanded file, 64 MiB per ZIP and 256 MiB expanded total. Unsafe archive paths and XML DTD/entity declarations are refused. Folder nesting is bounded. Unsupported/failed inputs report an error or warning; the previous job remains available after failed replacement.
 
 The viewer preserves source room/cabinet UniqueIDs for traceability; it does not guess export mappings from duplicate display numbers. Source design dimensions and names can differ from cut/report values, and exported-only parts may be absent. A saved packet is a snapshot, not a live NAS monitor: reload the intended revision. Sheets carry those limitations.
+
+## Local beta pilot
+
+Version 0.2.0-beta.1 is a local Windows/Edge reference-viewer candidate, not a published or production-accepted release. The sidebar and built version.json identify the exact source. Package from a clean reviewed commit after npm checks/build using `python packaging/build_candidate.py <new-output-directory-outside-source>`. A dirty or mismatched build is refused. See [local package instructions](packaging/README-LOCAL.md); Python 3.10+ is required on the receiving computer and is not bundled. No Node/npm is required to run the extracted package. Loopback only; not an installed PWA or Windows installer.
+
+The pilot improves typography/contrast, dialog keyboard focus and source/build identity while preserving source/quantity warnings. Browser-profile checks are not clean-OS, real NAS, physical printing, operator or full-shift acceptance.

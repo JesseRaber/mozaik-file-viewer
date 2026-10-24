@@ -10,7 +10,7 @@ export function openParms(host: HTMLElement) {
   const libs = state.job?.parms || [];
   const bar = el("div", { class: "sheet-bar light" });
   const title = el("div", { class: "sheet-title dark", text: "Construction parameters" });
-  const sel = el("select") as HTMLSelectElement;
+  const sel = el("select", { "aria-label": "Parameter library" }) as HTMLSelectElement;
   libs.forEach((l, i) => {
     sel.append(el("option", { value: String(i), text: l.lib }));
   });
@@ -21,7 +21,7 @@ export function openParms(host: HTMLElement) {
   }
   const search = el("input", {
     type: "text",
-    placeholder: "Search code or description…",
+    placeholder: "Search code or description…", "aria-label": "Search parameters",
   }) as HTMLInputElement;
   const printBtn = el("button", { type: "button", text: "Print" });
   const close = el("button", { type: "button", class: "sheet-close", text: "Close" });
