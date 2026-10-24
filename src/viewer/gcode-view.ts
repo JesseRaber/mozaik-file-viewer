@@ -153,7 +153,7 @@ export function openGcode(host: HTMLElement) {
     files.forEach((f,i) => select.append(el("option", {value:String(i),text:f.name})));
     const show = () => {
       const f = files[Number(select.value) || 0];
-      note.textContent = f.warnings.length ? f.warnings.join(" ") : "Single-program preview · actual Z · bed is illustrative · not machining approval";
+      note.textContent = f.warnings.length ? f.warnings.join(" ") : "Single-program preview · programmed Z only; datum, offsets and stock thickness unverified · bed is illustrative · not machining approval";
       draw(f.warnings.length ? [] : [f]);
     };
     select.onchange = show;

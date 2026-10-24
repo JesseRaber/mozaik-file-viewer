@@ -29,6 +29,7 @@ export function decodeBytes(buf: ArrayBuffer): string {
 }
 
 export function xmlPayload(text: string): string | null {
+  if (/<!DOCTYPE|<!ENTITY/i.test(text)) throw new Error("DTD/entity declarations are not supported");
   const i = text.indexOf("<?xml");
   if (i >= 0) return text.slice(i);
   const j = text.search(/<[A-Za-z][\w:.]*/);

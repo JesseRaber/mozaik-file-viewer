@@ -1,6 +1,6 @@
 import { partRowKey, sourceQuantity } from "./part-identity";
 import * as THREE from "three";
-import { assyMatches, dimClose, groupOf, normName } from "./geom";
+import { assyMatches, parseAssy, dimClose, groupOf, normName } from "./geom";
 import { printHtml } from "./print";
 import { currentProduct, currentRoom, state } from "./store";
 import type { Engine, PartView } from "./engine";
@@ -22,7 +22,7 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
   bar.append(title, runSel, el("span", { class: "lbl", text: "Explode" }), explode, printBtn, close);
 
   const page = el("div", { class: "sheet-page" });
-  const head = el("div", { class: "sheet-head" }, el("h2", { text: "Cabinet box — assembly / cut sheet" }));
+  const head = el("div", { class: "sheet-head" }, el("h2", { text: "Cabinet box — assembly reference" }));
   const sub = el("div", { class: "sheet-meta" });
   const body = el("div", { class: "sheet-body" });
   const img = el("div", { class: "asm-img" });
@@ -163,10 +163,12 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
     }
     const list = [...map.values()];
     const run = runs[runSel.value];
-    if (run) {
+    const duplicate = room?.products.filter(p => p.cabNo === prod?.cabNo).length !== 1;
+    if (run && !duplicate) {
       for (const mat of run.materials) {
         for (const op of mat.parts) {
-          if (!assyMatches(op.assy, room?.file || "", prod?.cabNo || "1")) continue;
+          if (!assyMatches(op.assy, room?.file || "", prod?.cabNo || "")) continue;
+          if (parseAssy(op.assy)?.room == null && state.job?.rooms.flatMap(r => r.products).filter(p => Number(p.cabNo) === Number(prod?.cabNo)).length !== 1) continue;
           const candidates = list.filter(g => normName(g.name) !== "" && normName(g.name) === normName(op.name) &&
             dimClose(g.L,g.W,op.L,op.W,0.05) && Math.abs(g.th-mat.thickness)<0.05 && (!g.mat || g.mat===mat.name));
           const hit = candidates.length === 1 ? candidates[0] : undefined;
@@ -183,16 +185,20 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
   function fillTable() {
     clear(table);
     const headRow = el("tr");
-    for (const h of ["#", "Part", "Q", "L", "W", "Thk", "Label", "Material", "Banding"]) {
+    const build = prod?.quantity ?? 1;
+    const cols = build === 1 ? ["#", "Part", "Q", "L", "W", "Thk", "Label", "Material", "Banding"]
+      : ["#", "Part", "Q/cab", `Total ×${build}`, "L", "W", "Thk", "Label", "Material", "Banding"];
+    for (const h of cols) {
       headRow.append(el("th", { text: h }));
     }
-    table.append(headRow);
+    table.append(el("thead", {}, headRow));
     rows().forEach((r, i) => {
       const tr = el("tr");
       tr.append(
         el("td", { class: "num", text: String(i + 1) }),
         el("td", { text: r.name }),
         el("td", { class: "num", text: String(r.qty) }),
+        ...(build === 1 ? [] : [el("td", { class: "num", text: String(r.qty * build) })]),
         el("td", { class: "mono", text: dim(r.L) }),
         el("td", { class: "mono", text: dim(r.W) }),
         thickCell(r),
@@ -202,7 +208,7 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
       );
       table.append(tr);
     });
-    sub.textContent = `${room?.name ?? ""} · cab #${prod?.cabNo ?? "?"} · ${unitLabel()}${runSel.value ? ` · Run ${runSel.value}` : ""}`;
+    sub.textContent = `${state.title.job} · ${state.title.customer} · ${prod?.name || ""} · ${room?.name ?? ""} · cab #${prod?.cabNo ?? "?"}${build === 1 ? "" : ` · BUILD QTY ${build} (Q is per cabinet)`} · ${unitLabel()}${runSel.value ? ` · Run ${runSel.value}` : ""}`;
 
     if (state.job?.warnings.length) sub.textContent += " · IMPORT WARNINGS: review before use";
     const all = rows();
@@ -220,6 +226,7 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
       note.hidden = false;
       note.textContent = "Companion reference — verify source dimensions and quantities before production.";
     }
+    note.append(document.createTextNode(" Design dimensions are not cut sizes; report names and exported-only parts can differ. Reload files to refresh. " + (state.job?.warnings.map(w => w.message).join(" · ") || "")));
   }
 
   function applyExplode() {
@@ -264,16 +271,18 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
     const url = renderer.domElement.toDataURL("image/png");
     const wrap = document.createElement("div");
     const h2 = document.createElement("h2");
-    h2.textContent = "Cabinet box — assembly / cut sheet";
+    h2.textContent = "Cabinet box — assembly reference";
     const p = document.createElement("p");
     p.textContent = sub.textContent || "";
     const row = document.createElement("div");
-    row.style.display = "flex";
+    row.style.display = "block";
     row.style.gap = "12px";
     const imgEl = document.createElement("img");
     imgEl.src = url;
     imgEl.alt = "Assembly view";
-    imgEl.style.width = "62%";
+    imgEl.style.width = "60%";
+    imgEl.style.maxHeight = "4in";
+    imgEl.style.objectFit = "contain";
     imgEl.style.border = "1.5px solid #222";
     row.append(imgEl, table.cloneNode(true));
     wrap.append(h2, p, row);
@@ -281,10 +290,9 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
     printHtml(
       "Assembly",
       `h2{margin:0} table{border-collapse:collapse;width:100%}
-       th{background:#1c1a17;color:#eee;padding:4px} td{border:1px solid #ccc;padding:3px 6px}
+       thead{display:table-header-group} tr{break-inside:avoid} th{background:#1c1a17;color:#eee;padding:4px} td{border:1px solid #ccc;padding:3px 6px}
        .sheet-note{font-size:10pt;margin-top:8px;color:#6b4b00}`,
       wrap,
-      "17in 11in",
     );
   };
 

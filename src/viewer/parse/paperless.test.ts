@@ -106,7 +106,7 @@ test("applyPaperless replaces guessed thickness with the stated one", () => {
     hardware: "",
   };
   const prod: Product = {
-    name: "Drawer", cabNo: "1", width: 0, height: 0, depth: 0, wall: "", wallX: 0,
+    name: "Drawer", cabNo: "1", quantity: 1, width: 0, height: 0, depth: 0, wall: "", wallX: 0,
     elev: 0, sourceLib: "", desc: "", fasteners: [], parts: [part],
   };
   const room: Room = { name: "Room 4", file: "Room4.des", walls: [], products: [prod], doorStyle: null };
@@ -132,7 +132,7 @@ test("applyPaperless leaves a part from another room alone", () => {
     holes: [], grooves: [], hardware: "",
   };
   const prod: Product = {
-    name: "Drawer", cabNo: "1", width: 0, height: 0, depth: 0, wall: "", wallX: 0,
+    name: "Drawer", cabNo: "1", quantity: 1, width: 0, height: 0, depth: 0, wall: "", wallX: 0,
     elev: 0, sourceLib: "", desc: "", fasteners: [], parts: [part],
   };
   // Fixture parts are R4N1; this room is Room1.des, so nothing may match.

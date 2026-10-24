@@ -328,6 +328,7 @@ export function buildDemoJob(): Job {
   const product: Product = {
     name: "Base 24",
     cabNo: "1",
+    quantity: 1,
     width: W,
     height: H,
     depth: D,
