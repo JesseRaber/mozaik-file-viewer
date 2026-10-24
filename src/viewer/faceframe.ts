@@ -44,7 +44,7 @@ export function openFaceFrame(host: HTMLElement) {
     page.append(h2, meta, body, tb);
     const defaults = layout!.members.filter(m => m.part.thicknessSource === "default").length;
     page.append(el("p", {class: "sheet-note", text: defaults ? `${defaults} frame thicknesses are defaults; verify before cutting. Drawing dimensions are projected extents, not machining approval.` : "Companion reference. Drawing dimensions are projected extents; no pocket machining is inferred."}));
-    if (state.job?.warnings.length) page.append(el("p", {class:"sheet-note",text:"Import warnings remain. Review source association before production."}));
+    if (state.job?.warnings.length) page.append(el("p", {class:"sheet-note",text:state.job.warnings.map(w => w.message).join(" · ")}));
 
     const bb = layout!.bb;
     const pad = 40;
@@ -118,7 +118,8 @@ export function openFaceFrame(host: HTMLElement) {
     const build = currentProduct()?.quantity ?? 1;
     const cols = build === 1 ? ["#", "Part", "Q", "Len", "Wid", "Thk", "Pk"] : ["#", "Part", "Q/cab", `Total ×${build}`, "Len", "Wid", "Thk", "Pk"];
     for (const h of cols) head.append(el("th", { text: h }));
-    table.append(head);
+    table.append(el("thead", {}, head));
+    const rows = el("tbody"); table.append(rows);
     layout!.members.forEach((m, i) => {
       const tr = el("tr");
       tr.append(
@@ -131,7 +132,7 @@ export function openFaceFrame(host: HTMLElement) {
         el("td", { class: "mono", text: dim(m.thick) }),
         el("td", { class: "num", text: m.pockets.length ? String(m.pockets.length) : "—" }),
       );
-      table.append(tr);
+      rows.append(tr);
     });
     tableWrap.append(table);
   }
@@ -176,9 +177,10 @@ function cell(k: string, v: string) {
 
 function sheetCss() {
   return `
-    h2{font:700 16px/1.2 "IBM Plex Serif",serif;margin:0 0 4px}
+    h2{font:700 16px/1.2 "Segoe UI",sans-serif;margin:0 0 4px}
     .sheet-meta{font:11px "IBM Plex Mono",ui-monospace,Consolas,monospace;color:#555;margin-bottom:10px}
     .sheet-body{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+    thead{display:table-header-group} tr{break-inside:avoid}
     .sheet-table{border-collapse:collapse;width:100%;font:11px "IBM Plex Sans",sans-serif}
     .sheet-table th{background:#1c1a17;color:#eeeae4;padding:4px 6px;text-align:left}
     .sheet-table td{border:1px solid #ccc;padding:3px 6px}

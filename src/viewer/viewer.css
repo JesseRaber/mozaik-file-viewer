@@ -2,13 +2,13 @@ html,
 body {
   margin: 0;
   height: 100%;
-  background: #12110f;
+  background: #101722;
 }
 
 .mfv-boot {
   margin: 0;
   padding: 24px;
-  color: #9a9388;
+  color: #b8c5d6;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-size: 0.75rem;
@@ -16,17 +16,17 @@ body {
 
 .mfv-host,
 .mfv-root {
-  --bg: #12110f;
-  --bg-elevated: #1c1a17;
-  --bg-subtle: #26231e;
-  --fg: #eeeae4;
-  --fg-muted: #9a9388;
-  --fg-subtle: #6f6a63;
-  --accent: #c8ccd4;
-  --accent-fg: #12110f;
+  --bg: #101722;
+  --bg-elevated: #182230;
+  --bg-subtle: #223044;
+  --fg: #eef3fa;
+  --fg-muted: #b8c5d6;
+  --fg-subtle: #aabbd0;
+  --accent: #91bbff;
+  --accent-fg: #101722;
   --danger: #c45c3e;
   --ok: #6b8f71;
-  --paper: #f3efe6;
+  --paper: #f6f8fc;
   --ink: #1a1714;
   --border: color-mix(in oklab, var(--fg) 14%, transparent);
   --border-strong: color-mix(in oklab, var(--fg) 24%, transparent);
@@ -43,11 +43,11 @@ body {
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
-  --font-display: "IBM Plex Serif", "Iowan Old Style", Georgia, serif;
+  --font-display: "Segoe UI", system-ui, sans-serif;
   --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
   --text-xs: 0.75rem;
-  --text-sm: 0.8125rem;
+  --text-sm: 0.875rem;
   --text-base: 0.9375rem;
   --text-lg: 1.125rem;
   --text-xl: clamp(1.35rem, 1.1rem + 1vw, 1.75rem);
@@ -129,7 +129,7 @@ body {
 
 .mfv-brand .beta {
   margin-left: auto;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--accent-fg);
@@ -335,7 +335,7 @@ body {
 .mfv-side footer {
   margin-top: auto;
   color: var(--fg-subtle);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   line-height: var(--leading-normal);
 }
 
@@ -759,7 +759,7 @@ body {
 
 .title-block .k {
   display: block;
-  font-size: 8px;
+  font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #666;
@@ -983,3 +983,37 @@ body {
     animation: none !important;
   }
 }
+
+/* Pilot accessibility/readability: hidden state, reflow, and persistent identity. */
+.mfv-root [hidden] { display: none !important; }
+.mfv-root { font-size: 14px; line-height: 1.5; }
+.mfv-side { overflow-wrap: anywhere; }
+.mfv-side > * { flex-shrink: 0; }
+.mfv-brand .kicker { letter-spacing: .07em; }
+.build-identity, .import-status { margin: 0; font-size: 12px; color: var(--fg-muted); line-height: 1.5; }
+.import-status { min-height: 18px; }
+.mfv-root button, .mfv-root select, .mfv-root input { border-color: #71839a; }
+.mfv-root button.on, .chips button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 -2px var(--accent); }
+.mfv-root button:focus-visible, .mfv-root select:focus-visible, .mfv-root input:focus-visible { outline: 3px solid #91bbff; }
+.mfv-side h1 { font-size: 24px; }
+.card h2 { font-size: 30px; }
+.landing { overflow: auto; }
+.card { margin: auto; flex-shrink: 0; }
+.chips { top: 78px; }
+.groups { flex: none; }
+.pref-card { max-height: calc(100dvh - 24px); overflow: auto; }
+.prow { text-transform: none; letter-spacing: normal; flex-direction: row; }
+.prow > span { min-width: 0; overflow-wrap: anywhere; }
+.sheet-scroll, .prm-tbl-wrap { min-width: 0; }
+@media (max-width: 860px) { .chips { top: 62px; } .landing { padding-top: 68px; } }
+@media (max-height: 650px) { .landing { place-items: start center; } }
+
+.mfv-side > .sel { flex: 0 0 auto; }
+.source-identity { margin: 0; font-size: 12px; color: var(--fg-muted); overflow-wrap: anywhere; }
+
+.startup-error { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 16px; padding: 32px; }
+.startup-error p { max-width: 600px; font-size: 16px; line-height: 1.6; }
+.startup-error button { flex: none; min-height: 44px; }
+
+/* Hidden layers remain readable and expose their state without color alone. */
+.chips button.off { opacity: 1; border-style: dashed; }

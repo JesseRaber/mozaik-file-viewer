@@ -15,7 +15,7 @@ export function openAssembly(host: HTMLElement, engine: Engine) {
   host.classList.add("open");
   const bar = el("div", { class: "sheet-bar" });
   const title = el("div", { class: "sheet-title", text: `Box assembly — ${prod?.name ?? ""}` });
-  const runSel = el("select") as HTMLSelectElement;
+  const runSel = el("select", { "aria-label": "Matching Paperless export" }) as HTMLSelectElement;
   const explode = el("input", { type: "range", min: "0", max: "50", value: "12", "aria-label": "Explode" }) as HTMLInputElement;
   const printBtn = el("button", { type: "button", text: "Print" });
   const close = el("button", { type: "button", class: "sheet-close", text: "Close" });

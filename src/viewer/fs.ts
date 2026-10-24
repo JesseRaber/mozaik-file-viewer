@@ -143,7 +143,8 @@ export async function recentJobs(): Promise<Recent[]> {
 }
 
 export async function openRecent(r: Recent) {
-  if (await perm(r.handle)) await loadFromHandle(r.handle);
+  if (!(await perm(r.handle))) throw new Error("Folder permission was denied. Use Open job folder to grant read access again; the current job is unchanged.");
+  await loadFromHandle(r.handle);
 }
 
 export { db };

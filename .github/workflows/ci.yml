@@ -24,5 +24,8 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Local launcher safety tests
+        run: python3 -m unittest discover -s packaging -p test_launcher.py
+
       - name: Build
         run: npm run build
