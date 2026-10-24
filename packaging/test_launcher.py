@@ -58,15 +58,16 @@ class LauncherTests(unittest.TestCase):
             thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
             base = "http://127.0.0.1:%s" % server.server_port
             try:
-                self.assertEqual(urllib.request.urlopen(base + "/").read(), b"Synthetic viewer")
+                with urllib.request.urlopen(base + "/") as response:
+                    self.assertEqual(response.read(), b"Synthetic viewer")
                 for path in ["/private.txt", "/../private.txt", "/%2e%2e/private.txt", "/..%5cprivate.txt"]:
                     with self.assertRaises(urllib.error.HTTPError) as e: urllib.request.urlopen(base + path)
-                    self.assertIn(e.exception.code, [403, 404])
+                    self.assertIn(e.exception.code, [403, 404]); e.exception.close()
                 (self.site / "empty").mkdir()
                 with self.assertRaises(urllib.error.HTTPError) as e: urllib.request.urlopen(base + "/empty/")
-                self.assertEqual(e.exception.code, 403)
+                self.assertEqual(e.exception.code, 403); e.exception.close()
                 with self.assertRaises(urllib.error.HTTPError) as e: urllib.request.urlopen(urllib.request.Request(base + "/index.html", data=b"write"))
-                self.assertEqual(e.exception.code, 501)
+                self.assertEqual(e.exception.code, 501); e.exception.close()
                 self.assertEqual((self.site / "index.html").read_text(encoding="utf-8"), "Synthetic viewer")
             finally: server.shutdown(); thread.join()
 

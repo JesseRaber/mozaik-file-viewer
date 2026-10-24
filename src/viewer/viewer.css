@@ -1014,3 +1014,6 @@ body {
 .startup-error { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 16px; padding: 32px; }
 .startup-error p { max-width: 600px; font-size: 16px; line-height: 1.6; }
 .startup-error button { flex: none; min-height: 44px; }
+
+/* Hidden layers remain readable and expose their state without color alone. */
+.chips button.off { opacity: 1; border-style: dashed; }

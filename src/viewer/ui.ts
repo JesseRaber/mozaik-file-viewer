@@ -88,8 +88,8 @@ export function mountViewer(root: HTMLElement): () => void {
   const selCab = el("select") as HTMLSelectElement;
   cabSelWrap.append(selCab);
   const units = el("div", { class: "units" });
-  const uIn = el("button", { type: "button", class: unit === "in" ? "on" : "", text: "in" });
-  const uMm = el("button", { type: "button", class: unit === "mm" ? "on" : "", text: "mm" });
+  const uIn = el("button", { type: "button", class: unit === "in" ? "on" : "", "aria-pressed": String(unit === "in"), text: "in" });
+  const uMm = el("button", { type: "button", class: unit === "mm" ? "on" : "", "aria-pressed": String(unit === "mm"), text: "mm" });
   units.append(uIn, uMm);
   cabRow.append(cabSelWrap, units);
   const search = el("input", {
@@ -150,7 +150,7 @@ export function mountViewer(root: HTMLElement): () => void {
   const chips = el("div", { class: "chips" });
   const tools = el("div", { class: "tools" });
   const mkTool = (id: string, label: string, cls = "") =>
-    el("button", { type: "button", "data-id": id, class: cls, text: label });
+    el("button", { type: "button", "data-id": id, class: cls, "aria-pressed": String(cls === "on"), text: label });
   tools.append(
     mkTool("front", "Front"),
     mkTool("iso", "Iso", "on"),
@@ -334,10 +334,11 @@ export function mountViewer(root: HTMLElement): () => void {
           ? engine.parts.some((p) => p.part.holes.length || p.part.grooves.length)
           : engine.parts.some((p) => p.group === d.key);
       if (!present) return;
-      const b = el("button", { type: "button", class: state.chips[d.key] === false ? "off" : "" });
+      const shown = state.chips[d.key] !== false;
+      const b = el("button", { type: "button", class: shown ? "" : "off", "aria-pressed": String(shown), "aria-label": `${d.label}, ${shown ? "shown" : "hidden"}` });
       const sw = el("span", { class: "sw" });
       sw.style.background = d.color;
-      b.append(sw, document.createTextNode(d.label));
+      b.append(sw, document.createTextNode(d.label + (shown ? "" : " (hidden)")));
       let t: number | null = null;
       b.onclick = () => {
         if (t) clearTimeout(t);
@@ -422,6 +423,8 @@ export function mountViewer(root: HTMLElement): () => void {
     pct.textContent = `${Math.round(state.explode * 100)}%`;
     uIn.classList.toggle("on", unit === "in");
     uMm.classList.toggle("on", unit === "mm");
+    uIn.setAttribute("aria-pressed", String(unit === "in"));
+    uMm.setAttribute("aria-pressed", String(unit === "mm"));
     rebuild();
   });
 
@@ -500,6 +503,7 @@ export function mountViewer(root: HTMLElement): () => void {
       }
       if (i === "grid") b.classList.toggle("on", state.grid);
       if (i === "dims") b.classList.toggle("on", state.dims);
+      b.setAttribute("aria-pressed", String(b.classList.contains("on")));
     });
   });
 
