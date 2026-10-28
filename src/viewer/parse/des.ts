@@ -155,6 +155,7 @@ export function parseDes(text: string, fname: string): { room: Room | null; warn
       const part: Part = {
         id: idx++,
         name: cp.getAttribute("Name") || `Part ${idx}`,
+        reportName: cp.getAttribute("ReportName") || undefined,
         type,
         layer: num(cp, "Layer"),
         qty,

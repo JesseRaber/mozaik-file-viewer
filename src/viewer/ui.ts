@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { appVersion, sourceRevision } from "../version";
 import { openAssembly } from "./assembly";
+import { openCutlist } from "./cutlist-view";
 import { buildDemoJob } from "./demo";
 import { clear, el, svg } from "./dom";
 import type { Engine } from "./engine";
@@ -105,8 +106,9 @@ export function mountViewer(root: HTMLElement): () => void {
   const bAsm = el("button", { type: "button", class: "act asm", text: "Box assembly sheet" });
   const bPrm = el("button", { type: "button", class: "act prm", text: "Construction parameters" });
   const bGcv = el("button", { type: "button", class: "act gcv", text: "G-code visualizer" });
+  const bCut = el("button", { type: "button", class: "act cut", text: "Cutlist check" });
   const bPref = el("button", { type: "button", text: "Preferences" });
-  actions.append(bFF, bAsm, bPrm, bGcv, bPref);
+  actions.append(bFF, bAsm, bPrm, bCut, bGcv, bPref);
   const groups = el("div", { class: "groups" });
   const foot = el(
     "footer",
@@ -379,6 +381,7 @@ export function mountViewer(root: HTMLElement): () => void {
     if (!prod) {
       pname.textContent = state.job?.cncFiles.length ? "G-code program loaded" : "No cabinet loaded";
       bFF.style.display = "none";
+      bCut.style.display = "none";
       warn.hidden = !state.job?.warnings.length;
       warn.textContent = state.job?.warnings.map(w => w.message).join(" · ") || "";
       pdims.textContent = state.job?.cncFiles.length ? "Use G-code visualizer to inspect the selected program" : "Open a job folder to begin";
@@ -398,6 +401,7 @@ export function mountViewer(root: HTMLElement): () => void {
       libTag.textContent = `Parameters: ${prod.sourceLib}`;
     } else libTag.hidden = true;
     bFF.style.display = prod.parts.some((p) => p.type === "Frame") ? "block" : "none";
+    bCut.style.display = state.job?.source === "files" ? "block" : "none";
     landing.classList.add("gone");
     const w = state.job?.warnings ?? [];
     if (w.length) {
@@ -511,6 +515,7 @@ export function mountViewer(root: HTMLElement): () => void {
   bAsm.onclick = () => { closeOverlay(); openAssembly(overlay, engine); };
   bPrm.onclick = () => { closeOverlay(); openParms(overlay); };
   bGcv.onclick = () => { closeOverlay(); openGcode(overlay); };
+  bCut.onclick = () => { closeOverlay(); openCutlist(overlay, flash); };
   libTag.onclick = () => { closeOverlay(); openParms(overlay); };
   menuBtn.onclick = () => (side.classList.contains("open") ? closeNav() : openNav());
   scrim.onclick = closeNav;

@@ -1017,3 +1017,76 @@ body {
 
 /* Hidden layers remain readable and expose their state without color alone. */
 .chips button.off { opacity: 1; border-style: dashed; }
+
+/* Cutlist check (MFV-16) */
+.cut-page p {
+  margin: 4px 0 8px;
+  line-height: 1.45;
+}
+.cut-limits {
+  color: #555048;
+  font-size: 12px;
+}
+.cut-warn {
+  color: #9b2c14;
+  font-weight: 600;
+}
+.cut-ok {
+  color: #2f5d36;
+  font-weight: 600;
+}
+.cut-summary {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #3a3631;
+}
+.cut-cab {
+  border-top: 1px solid #d8d2c6;
+  padding-top: 10px;
+  margin-top: 14px;
+}
+.cut-cab h3 {
+  margin: 0 0 2px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+.cut-room {
+  font-weight: 400;
+  color: #555048;
+}
+.cut-pill {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.cut-pill.ok {
+  background: #dfeee1;
+  color: #2f5d36;
+}
+.cut-pill.bad {
+  background: #f8dcd3;
+  color: #9b2c14;
+}
+.cut-table tr.cut-bad td {
+  color: #9b2c14;
+  font-weight: 600;
+  background: #fdf1ed;
+}
+.cut-table tr.cut-exp td {
+  color: #555048;
+}
+.cut-matches {
+  margin-top: 6px;
+  font-size: 12px;
+}
+.cut-matches summary {
+  cursor: pointer;
+  color: #3a3631;
+  padding: 6px 0;
+}
+.cut-bar select {
+  width: auto;
+}

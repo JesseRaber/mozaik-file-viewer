@@ -10,7 +10,7 @@ From the extracted folder run:
 
 Or use your installed Python executable. The launcher checks every packaged file, serves only site/ on 127.0.0.1:4187, and opens the browser. Keep its console running. Stop with Ctrl+C. If the port is occupied, close your previous Viewer instance or choose --port 4188; another port has separate browser preferences/recent handles. --no-browser leaves browser launch to you. This is a loopback preview, not an installed PWA, Windows installer or hosted service. Do not expose it to the LAN.
 
-Open job folder, Files / zip, or Load demo cabinet. Room/cabinet controls select the source snapshot; use Box assembly sheet / Face frame sheet / Construction parameters for reference. Keyboard Tab/Shift+Tab navigate; Escape closes a sheet/menu. PDF export uses the browser print route with Letter landscape; inspect every page. Physical printing is not qualified here.
+Open job folder, Files / zip, or Load demo cabinet. Room/cabinet controls select the source snapshot; use Box assembly sheet / Face frame sheet / Construction parameters for reference. Cutlist check adds Mozaik's cutlist export (.mzkcut) and shows, per cabinet, where it agrees or differs with the loaded job; labels and banding are not checked. Keyboard Tab/Shift+Tab navigate; Escape closes a sheet/menu. PDF export uses the browser print route with Letter landscape; inspect every page. Physical printing is not qualified here.
 
 The sidebar reports version and source commit; site/version.json records the full identity. SHA256SUMS.txt detects missing/changed files relative to this manifest; it is not a digital signature or independent proof of publisher authenticity. Use a trusted delivery/hash source.
 

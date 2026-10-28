@@ -1,7 +1,7 @@
 {
   "name": "mozaik-file-viewer",
   "private": true,
-  "version": "0.2.0-beta.1",
+  "version": "0.3.0-beta.1",
   "type": "module",
   "description": "Local, read-only viewer for Mozaik cabinet job folders. Independent of Mozaik Software.",
   "scripts": {
@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --import ./test/setup.mjs --test src/viewer/viewer.test.ts src/viewer/parse/paperless.test.ts src/viewer/regression.test.ts"
+    "test": "node --experimental-strip-types --import ./test/setup.mjs --test src/viewer/viewer.test.ts src/viewer/parse/paperless.test.ts src/viewer/regression.test.ts src/viewer/cutlist.test.ts"
   },
   "dependencies": {
     "jszip": "^3.10.1",
