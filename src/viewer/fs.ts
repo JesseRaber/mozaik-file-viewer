@@ -106,6 +106,15 @@ export async function openFiles() {
   if (files.length) setJob(await loadItems(await filesToItems(files)));
 }
 
+/** One Mozaik cutlist export; null on cancel. */
+export async function pickCutlistFile(): Promise<File | null> {
+  const files = await pickFiles((input) => {
+    input.multiple = false;
+    input.accept = ".mzkcut";
+  });
+  return files[0] || null;
+}
+
 /** Resolves with the chosen files (empty on cancel) so load errors reach the caller's catch. */
 function pickFiles(setup: (input: HTMLInputElement) => void): Promise<File[]> {
   return new Promise((resolve) => {

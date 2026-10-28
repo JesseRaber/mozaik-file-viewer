@@ -30,6 +30,8 @@ export type Rot = { axis: Axis; deg: number };
 export type Part = {
   id: number;
   name: string;
+  /** Mozaik ReportName, the name the cutlist export uses; absent when the source has none. */
+  reportName?: string;
   type: string;
   layer: number;
   qty: number;
@@ -187,6 +189,27 @@ export type Job = {
   paperless?: PaperlessData;
   /** How many parts the Paperless Shop overlay matched. */
   paperlessMatched?: number;
+  /** Mozaik cutlist export (.mzkcut) added after the job was loaded; read-only. */
+  cutlist?: CutlistExport;
+};
+
+/** One `CutlistItem` row from a Mozaik `.mzkcut` export (`AppData.xml`). */
+export type CutlistRow = {
+  cabUID: string;
+  cabNo: string;
+  roomName: string;
+  reportName: string;
+  W: number;
+  L: number;
+  qty: number;
+  type: string;
+};
+
+export type CutlistExport = {
+  file: string;
+  jobName: string;
+  runName: string;
+  rows: CutlistRow[];
 };
 
 export type FileItem = {

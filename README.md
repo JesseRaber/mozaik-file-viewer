@@ -32,6 +32,7 @@ Nothing is uploaded. IndexedDB stores File System Access handles on Chromium. lo
 | `*-JobParms.dat` | Construction parameters |
 | `JobDat.dat` | Customer name |
 | `*.TXT` / `.nc` / `.gcode` | Nested G-code |
+| `*.mzkcut` (added from **Cutlist check**) | Mozaik cutlist export (`AppData.xml`), compared with the loaded job |
 
 ## Thickness
 
@@ -61,6 +62,7 @@ This is a read-only companion viewer. Full Paperless Shop replacement belongs in
 
 - Open one job folder at a time. Duplicate cabinet identifiers, ambiguous material matches and conflicting measurements are reported rather than guessed.
 - Include only the intended matching Paperless export. Multiple exports are not ranked by size or presumed current. Original stated thickness survives conflicts.
+- **Cutlist check** compares a Mozaik cutlist export (`.mzkcut`) with the loaded job per cabinet, matching Mozaik cabinet ID, report name and size (0.1 mm tolerance). Known export behaviour (export-only toe skins and counter tops, door members exported as one door, the 1.5875 mm narrower frameless adjustable shelf, `UEnd`→`End` + `Panelized End`) is labelled expected; other differences are flagged. Cabinets in only one side are listed and not compared. Labels and edge banding are not checked. Adding or failing to add an export never changes the loaded job.
 - Parameter numbering is recognized only when its range establishes zero- or one-based categories; otherwise all parameters are shown until the user selects a numbering convention.
 - G-code previews support explicit G20/G21, G90/G91, XY-plane G0/G1/G2/G3, incremental I/J or signed R arcs, and standard spindle/tool blocks. Macros, canned cycles, offsets/compensation and unsupported commands withhold the preview. G54 is treated as a single work coordinate frame; the preview does not model machine/tool offsets. A preview is not machining approval.
 - Frame drawings are illustrations of source parts. Pocket operations are not inferred. Default thicknesses need verification.
@@ -80,6 +82,6 @@ The viewer preserves source room/cabinet UniqueIDs for traceability; it does not
 
 ## Local beta pilot
 
-Version 0.2.0-beta.1 is a local Windows/Edge reference-viewer candidate, not a published or production-accepted release. The sidebar and built version.json identify the exact source. Package from a clean reviewed commit after npm checks/build using `python packaging/build_candidate.py <new-output-directory-outside-source>`. A dirty or mismatched build is refused. See [local package instructions](packaging/README-LOCAL.md); Python 3.10+ is required on the receiving computer and is not bundled. No Node/npm is required to run the extracted package. Loopback only; not an installed PWA or Windows installer.
+Version 0.3.0-beta.1 is a local Windows/Edge reference-viewer candidate, not a published or production-accepted release. The sidebar and built version.json identify the exact source. Package from a clean reviewed commit after npm checks/build using `python packaging/build_candidate.py <new-output-directory-outside-source>`. A dirty or mismatched build is refused. See [local package instructions](packaging/README-LOCAL.md); Python 3.10+ is required on the receiving computer and is not bundled. No Node/npm is required to run the extracted package. Loopback only; not an installed PWA or Windows installer.
 
 The pilot improves typography/contrast, dialog keyboard focus and source/build identity while preserving source/quantity warnings. Browser-profile checks are not clean-OS, real NAS, physical printing, operator or full-shift acceptance.
