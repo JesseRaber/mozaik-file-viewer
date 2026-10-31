@@ -1,5 +1,8 @@
 @echo off
 setlocal
+rem Started from a PowerShell 7 window, cmd would pass PowerShell 7's module path to
+rem Windows PowerShell, which then cannot load its own cmdlets. Use its defaults.
+set "PSModulePath="
 title Mozaik File Viewer - close this window to stop the viewer
 if not exist "%~dp0runtime\python.exe" (
   echo This folder is incomplete. Extract the whole ZIP first ^(right-click the ZIP, Extract All^).

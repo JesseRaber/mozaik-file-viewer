@@ -119,7 +119,18 @@ Check (-not (($out -join ' ') -match 'cannot find')) 'Uninstall.cmd exits withou
 # Install.cmd end to end from the MOTW copy.
 $out = Invoke-Cmd (Join-Path $extract 'Install.cmd')
 Check ((Test-Path -LiteralPath (Join-Path $dest 'Start-Viewer.cmd')) -and (Test-Path -LiteralPath (Join-Path $start 'Mozaik File Viewer.lnk'))) 'Install.cmd installs'
-# Uninstall using the short (8.3) form of the same install root.
+# Repair from a PowerShell 7 window: cmd passes PowerShell 7's module path to Windows PowerShell.
+$pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+if ($pwsh) {
+  Add-Content -LiteralPath (Join-Path $dest 'README.md') 'tamper'
+  $savedModulePath = $env:PSModulePath
+  $env:PSModulePath = (& $pwsh.Source -NoProfile -Command '$env:PSModulePath')
+  try { $out = Invoke-Cmd (Join-Path $extract 'Install.cmd') } finally { $env:PSModulePath = $savedModulePath }
+  $ErrorActionPreference = 'Continue'
+  & (Join-Path $dest 'runtime\python.exe') -B (Join-Path $dest 'Launch-Viewer.py') --check | Out-Null
+  Check ($LASTEXITCODE -eq 0 -and -not (($out -join ' ') -match 'not recognized')) 'Install.cmd repairs an install when started from a PowerShell 7 window'
+  $ErrorActionPreference = 'Stop'
+} else { Write-Host 'SKIP  PowerShell 7 not installed; inherited-module-path check not run' }# Uninstall using the short (8.3) form of the same install root.
 $shortRoot = (New-Object -ComObject Scripting.FileSystemObject).GetFolder($root).ShortPath
 Write-Host ('Short install root: ' + $shortRoot)
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $dest 'setup\Uninstall.ps1') -InstallRoot $shortRoot -StartMenuDir $start -DesktopDir $desk | Out-Host
