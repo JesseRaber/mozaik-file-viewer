@@ -1090,3 +1090,19 @@ body {
 .cut-bar select {
   width: auto;
 }
+
+.warn summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.warn-list {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.warn-list li + li {
+  margin-top: 2px;
+}
