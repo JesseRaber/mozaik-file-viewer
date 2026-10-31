@@ -17,10 +17,15 @@ function looksLikeGcode(head: string): boolean {
 }
 
 function applyOptimizerThickness(job: Job) {
+  for (const room of job.rooms) {
+    // Mozaik reuses cabinet numbers within a room (island panels, mirror frames): one note per number, not per part.
+    const dupes = [...new Set(room.products.map(p => p.cabNo))].filter(no => room.products.filter(p => p.cabNo === no).length > 1)
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    if (dupes.length)
+      job.warnings.push({file: room.file, message: `Cabinet number${dupes.length > 1 ? "s" : ""} #${dupes.join(", #")} used more than once; optimizer thickness not matched for those cabinets`});
+  }
   for (const room of job.rooms) for (const prod of room.products) for (const part of prod.parts) {
-    if (room.products.filter(p => p.cabNo === prod.cabNo).length > 1) {
-      job.warnings.push({file: room.file, message: `Duplicate cabinet identity ${prod.cabNo}; optimizer association withheld`}); continue;
-    }
+    if (room.products.filter(p => p.cabNo === prod.cabNo).length > 1) continue;
     const matches = Object.values(job.runs).flatMap(run => run.materials.flatMap(mat =>
       mat.parts.filter(op => mat.thickness > 0.2 && normName(part.name) !== "" &&
         normName(part.name) === normName(op.name) && assyMatches(op.assy, room.file, prod.cabNo) &&
@@ -113,21 +118,27 @@ export async function loadItems(items: FileItem[]): Promise<Job> {
   }
 
   const desBases = new Set(desItems.map((it) => it.name.replace(/\.des$/i, "").toLowerCase()));
-  const useItems = desItems.concat(
-    sbkItems.filter((it) => !desBases.has(it.name.replace(/\.sbk$/i, "").toLowerCase())),
-  );
+  const orphanSbk = sbkItems.filter((it) => !desBases.has(it.name.replace(/\.sbk$/i, "").toLowerCase()));
+  // A .sbk with no .des beside it is a backup Mozaik left behind (e.g. a deleted room). Use backups only when no .des exists.
+  const useItems = desItems.length ? desItems : orphanSbk;
+  if (desItems.length && orphanSbk.length)
+    warnings.push({ file: "Backups", message: `Backup room file${orphanSbk.length > 1 ? "s" : ""} without a current room skipped: ${orphanSbk.map((it) => it.name).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).join(", ")}` });
   const rooms = [];
+  const emptyRooms: string[] = [];
   for (const it of useItems) {
     try {
       const txt = decodeBytes(await it.raw());
       const { room, warning } = parseDes(txt, it.name);
-      if (warning) warnings.push(warning);
+      if (warning?.message === "Room has no products") emptyRooms.push(it.name);
+      else if (warning) warnings.push(warning);
       if (room) rooms.push(room);
     } catch (err) {
       warnings.push({ file: it.name, message: `Room failed: ${String(err)}` });
     }
   }
   rooms.sort((a, b) => a.file.localeCompare(b.file, undefined, { numeric: true }));
+  if (emptyRooms.length)
+    warnings.push({ file: emptyRooms.length > 1 ? "Rooms" : emptyRooms[0], message: emptyRooms.length > 1 ? `${emptyRooms.length} rooms have no cabinets: ${emptyRooms.sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).join(", ")}` : "Room has no products" });
 
   for (const it of txtCandidates) {
     try {

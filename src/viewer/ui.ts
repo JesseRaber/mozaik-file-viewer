@@ -382,8 +382,7 @@ export function mountViewer(root: HTMLElement): () => void {
       pname.textContent = state.job?.cncFiles.length ? "G-code program loaded" : "No cabinet loaded";
       bFF.style.display = "none";
       bCut.style.display = "none";
-      warn.hidden = !state.job?.warnings.length;
-      warn.textContent = state.job?.warnings.map(w => w.message).join(" · ") || "";
+      paintWarnings(state.job?.warnings ?? [], false);
       pdims.textContent = state.job?.cncFiles.length ? "Use G-code visualizer to inspect the selected program" : "Open a job folder to begin";
       libTag.hidden = true;
       landing.classList.remove("gone");
@@ -403,11 +402,23 @@ export function mountViewer(root: HTMLElement): () => void {
     bFF.style.display = prod.parts.some((p) => p.type === "Frame") ? "block" : "none";
     bCut.style.display = state.job?.source === "files" ? "block" : "none";
     landing.classList.add("gone");
-    const w = state.job?.warnings ?? [];
-    if (w.length) {
-      warn.hidden = false;
-      warn.textContent = w.map((x) => `${x.file}: ${x.message}`).join(" · ");
-    } else warn.hidden = true;
+    paintWarnings(state.job?.warnings ?? [], true);
+  }
+
+  /** Summary line plus a collapsed list, so a large job's notes do not bury the sidebar. */
+  function paintWarnings(list: { file: string; message: string }[], withFile: boolean) {
+    const wasOpen = !!warn.querySelector("details")?.open;
+    clear(warn);
+    warn.hidden = !list.length;
+    if (!list.length) return;
+    const lines = list.map((x) => (withFile ? `${x.file}: ${x.message}` : x.message));
+    if (lines.length === 1) {
+      warn.textContent = lines[0];
+      return;
+    }
+    const items = el("ul", { class: "warn-list" });
+    for (const line of lines) items.append(el("li", { text: line }));
+    warn.append(el("details", { open: wasOpen }, el("summary", { text: `${lines.length} notes about this source — show` }), items));
   }
 
   function rebuild() {

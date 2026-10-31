@@ -136,3 +136,25 @@ test("recent folder permission denial is explicit and preserves the current job"
   await assert.rejects(openRecent({ name: "Unavailable", handle, ts: 0 }), /permission was denied/);
   assert.equal(state.job, prior);
 });
+test("reused cabinet numbers in a room give one note per room, not one per part",async()=>{
+ const twoParts='<CabProdParts><CabProdPart Name="Bottom" Type="Bottom" L="500" W="500" Quan="1"/><CabProdPart Name="Top" Type="Top" L="500" W="500" Quan="1"/></CabProdParts>';
+ const prod=(no:string,name:string)=>`<Product ProdName="${name}" CabNo="${no}" Width="600" Height="800" Depth="600">${twoParts}</Product>`;
+ const r=`<Room Name="Kitchen"><Products>${prod("1","Base")}${prod("2","Base")}${prod("1","Island Stile")}${prod("2","Panel")}</Products></Room>`;
+ const j=await loadItems([file("Job/Room1.des",r),file("Job/a.opt",opt(1,19.05,"R1C1"))]);
+ const dup=j.warnings.filter(w=>/used more than once/.test(w.message));
+ assert.equal(dup.length,1);assert.match(dup[0].message,/#1, #2/);
+ assert.ok(j.rooms[0].products.every(p=>p.parts.every(x=>x.thicknessSource==="default")));
+});
+test("backup .sbk without a current .des is skipped when the job has .des rooms",async()=>{
+ const j=await loadItems([file("Job/Room1.des",room),file("Job/Room1.sbk",room),file("Job/Room13.sbk",room.replace('Name="Room1"','Name="Old Kitchen"'))]);
+ assert.deepEqual(j.rooms.map(r=>r.file),["Room1.des"]);
+ assert.ok(j.warnings.some(w=>/skipped: Room13\.sbk/.test(w.message)));
+ const only=await loadItems([file("Job/Room2.sbk",room)]);
+ assert.deepEqual(only.rooms.map(r=>r.file),["Room2.sbk"]);
+});
+test("several empty rooms collapse into one note",async()=>{
+ const empty='<Room Name="Empty"><Products></Products></Room>';
+ const j=await loadItems([file("Job/Room1.des",room),file("Job/Room0.des",empty),file("Job/Room4.des",empty),file("Job/Room10.des",empty)]);
+ const notes=j.warnings.filter(w=>/no cabinets|no products/.test(w.message));
+ assert.equal(notes.length,1);assert.match(notes[0].message,/3 rooms have no cabinets: Room0\.des, Room4\.des, Room10\.des/);
+});
