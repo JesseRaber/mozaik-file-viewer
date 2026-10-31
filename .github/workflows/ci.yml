@@ -29,3 +29,36 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  windows-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - name: Build Windows package (downloads the pinned python.org runtime, hash checked)
+        shell: pwsh
+        run: python packaging/build_candidate.py "$env:RUNNER_TEMP\pkg"
+
+      - name: Launcher tests on the bundled runtime
+        shell: pwsh
+        run: |
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          & "$env:RUNNER_TEMP\pkg\mozaik-file-viewer-$v-windows-x64\runtime\python.exe" -B packaging/test_launcher.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Scripted install / launch / uninstall test
+        shell: pwsh
+        run: |
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          powershell -NoProfile -ExecutionPolicy Bypass -File packaging/windows/test_install.ps1 -Package "$env:RUNNER_TEMP\pkg\mozaik-file-viewer-$v-windows-x64"
+          if ($LASTEXITCODE -ne 0) { exit 1 }

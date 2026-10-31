@@ -1,4 +1,7 @@
 import contextlib
+import io
+import json
+import sys
 import hashlib
 import http.server
 import importlib.util
@@ -70,6 +73,30 @@ class LauncherTests(unittest.TestCase):
                 self.assertEqual(e.exception.code, 501); e.exception.close()
                 self.assertEqual((self.site / "index.html").read_text(encoding="utf-8"), "Synthetic viewer")
             finally: server.shutdown(); thread.join()
+
+    def test_busy_port_is_refused_and_running_viewer_detected(self):
+        (self.site / "version.json").write_text(json.dumps({"version": "9.9.9-test", "revision": "x", "dirty": False}), encoding="utf-8")
+        with launcher.Server(("127.0.0.1", 0), launcher.Handler) as server:
+            thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+            port = server.server_port
+            try:
+                with self.assertRaises(OSError): launcher.Server(("127.0.0.1", port), launcher.Handler)
+                self.assertEqual(launcher.running_viewer(port), "9.9.9-test")
+            finally: server.shutdown(); thread.join()
+        self.assertIsNone(launcher.running_viewer(port))
+
+    def test_check_flag_verifies_and_exits(self):
+        self.manifest()
+        argv = sys.argv; sys.argv = ["Launch-Viewer.py", "--check"]; out = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out): launcher.main()
+        finally: sys.argv = argv
+        self.assertIn("Viewer package OK", out.getvalue())
+        (self.site / "index.html").write_text("Changed", encoding="utf-8")
+        sys.argv = ["Launch-Viewer.py", "--check"]
+        try:
+            with self.assertRaisesRegex(ValueError, "checksum mismatch"): launcher.main()
+        finally: sys.argv = argv
 
 if __name__ == "__main__": unittest.main()
 

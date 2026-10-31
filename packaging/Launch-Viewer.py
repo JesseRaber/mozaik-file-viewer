@@ -1,11 +1,14 @@
-"""Local read-only launcher. Python 3.10+; no pip/npm or external service."""
+"""Local read-only launcher. Python 3.10+ (bundled in the Windows package); no pip/npm or external service."""
 import argparse
 import functools
 import hashlib
 import http.server
+import json
 import pathlib
+import socket
 import sys
 import urllib.parse
+import urllib.request
 import webbrowser
 
 ROOT = pathlib.Path(__file__).resolve().parent
@@ -53,16 +56,52 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
 
+class Server(http.server.ThreadingHTTPServer):
+    # The standard server sets SO_REUSEADDR, which on Windows lets a second
+    # Viewer bind the same port silently. Bind exclusively so a busy port fails.
+    allow_reuse_address = False
+
+    def server_bind(self):
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
+def running_viewer(port):
+    """Return the version served by a Viewer already on this port, or None."""
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:%s/version.json" % port, timeout=2) as response:
+            identity = json.loads(response.read().decode("utf-8"))
+    except (OSError, ValueError):
+        return None
+    return identity.get("version") if isinstance(identity, dict) and isinstance(identity.get("version"), str) else None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Start the read-only Viewer on this computer only")
     parser.add_argument("--port", type=int, default=4187)
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--check", action="store_true", help="verify the package files and exit")
     args = parser.parse_args()
     verify()
-    with http.server.ThreadingHTTPServer(("127.0.0.1", args.port), Handler) as server:
+    if args.check:
+        print("Viewer package OK: " + str(ROOT), flush=True)
+        return
+    try:
+        server = Server(("127.0.0.1", args.port), Handler)
+    except OSError:
+        version = running_viewer(args.port)
+        if version is None:
+            raise
+        url = "http://127.0.0.1:%s/" % args.port
+        print("A Viewer (version " + version + ") is already running at " + url, flush=True)
+        if not args.no_browser:
+            webbrowser.open(url)
+        return
+    with server:
         url = "http://127.0.0.1:%s/" % server.server_port
         print("Viewer package: " + str(ROOT), flush=True)
-        print("Viewer URL: " + url + " (Ctrl+C to stop)", flush=True)
+        print("Viewer URL: " + url + " (close this window or press Ctrl+C to stop)", flush=True)
         if not args.no_browser:
             webbrowser.open(url)
         try:
